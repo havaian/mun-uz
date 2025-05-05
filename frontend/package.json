@@ -1,0 +1,27 @@
+{
+  "name": "mun.uz",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.5",
+    "autoprefixer": "^10.4.21",
+    "axios": "^1.9.0",
+    "pinia": "^3.0.2",
+    "postcss": "^8.5.3",
+    "qrcode.js": "^0.0.1",
+    "tailwindcss": "^4.1.5",
+    "vue": "^3.5.13",
+    "vue-countdown": "^1.0.4",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.3",
+    "vite": "^6.3.5"
+  }
+}
