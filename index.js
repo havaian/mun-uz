@@ -71,6 +71,7 @@ fastify.register(require('./resolutions/routes'), { prefix: '/api/resolutions' }
 fastify.register(require('./amendments/routes'), { prefix: '/api/amendments' });
 fastify.register(require('./votings/routes'), { prefix: '/api/votings' });
 fastify.register(require('./statistics/routes'), { prefix: '/api/statistics' });
+fastify.register(require('./countries/routes'), { prefix: '/api/countries' });
 
 // Health check route
 fastify.get('/health', async () => {
