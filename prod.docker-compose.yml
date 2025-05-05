@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: mun-uz-api
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/mun-uz
+      - PORT=3000
+      # In production, set a strong secret via environment variable or secret management
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - mun-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mongo:
+    image: mongo:4.4
+    container_name: mun-uz-mongo
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    # In production, we don't expose MongoDB to the host
+    # ports:
+    #   - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+    networks:
+      - mun-network
+    command: [--auth]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  mun-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local
+  mongo-config:
+    driver: local
