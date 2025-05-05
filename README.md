@@ -1,93 +1,594 @@
 # mun-uz
 
+Техническое задание на разработку платформы mun.uz
+1. Общие сведения
+1.1 Наименование системы
+Веб-платформа для организации и проведения моделей ООН "mun.uz"
+1.2 Назначение и цели создания системы
+Система предназначена для автоматизации организационных и процедурных аспектов моделирования работы международных организаций (ООН, ОБСЕ и других) путем создания песочницы, позволяющей администраторам создавать мероприятия, комитеты, назначать страны-участницы, этапы проведения (сессии) и управлять таймингом, статистикой и голосованиями.
+1.3 Требования к срокам
+Срок разработки: 12 дней с момента утверждения технического задания.
+2. Архитектура системы
+2.1 Тип архитектуры
+Монолитное приложение с клиент-серверной архитектурой.
+2.2 Технологический стек
+
+Бэкенд: Node.js, Fastify, MongoDB
+Фронтенд: Vue.js, Tailwind CSS
+Дополнительные библиотеки:
+
+PDF-генерация: PDFKit/html-pdf
+QR-код генерация: qrcode.js
+Таймеры: Vue-countdown или аналоги
+Аутентификация: JWT
+Валидация данных: Joi/Yup
 
 
-## Getting started
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+2.3 Масштабируемость
+Система должна поддерживать одновременную работу до 100 активных пользователей без существенного снижения производительности.
+3. Функциональные требования
+3.1 Система пользовательских ролей
+3.1.1 Администратор
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Создание и управление мероприятиями
+Создание и удаление комитетов
+Назначение и снятие членов президиума
+Генерация QR-кодов для участников
+Мониторинг состояния комитетов и активности
+Экспорт данных мероприятия
 
-## Add your files
+3.1.2 Президиум
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Настройка типа комитета (ГА, СБ, другое)
+Определение списка стран-участниц
+Управление сессиями
+Проведение переклички
+Управление режимами работы
+Установка таймеров
+Управление голосованиями
+Проверка и модерация резолюций и поправок
+Доступ к статистике комитета
 
-```
-cd existing_repo
-git remote add origin https://gitlab.ytech.space/root/mun-uz.git
-git branch -M main
-git push -uf origin main
-```
+3.1.3 Делегат
 
-## Integrate with your tools
+Авторизация через QR-код
+Загрузка проектов резолюций
+Подтверждение соавторства
+Внесение поправок
+Голосование
+Просмотр личной статистики
 
-- [ ] [Set up project integrations](https://gitlab.ytech.space/root/mun-uz/-/settings/integrations)
+3.2 Модуль администрирования
+3.2.1 Управление мероприятиями
 
-## Collaborate with your team
+Создание нового мероприятия с указанием названия, даты, описания
+Редактирование параметров мероприятия
+Активация/деактивация мероприятия
+Удаление мероприятия
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+3.2.2 Управление комитетами
 
-## Test and Deploy
+Создание комитета с указанием названия и типа
+Назначение членов президиума для комитета
+Мониторинг состояния комитетов в реальном времени
+Удаление комитета
 
-Use the built-in continuous integration in GitLab.
+3.2.3 Генерация доступа для участников
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Массовая генерация QR-кодов для делегатов
+Выгрузка QR-кодов в PDF формате для печати
+Привязка QR-кодов к странам-участницам
 
-***
+3.3 Модуль управления комитетом
+3.3.1 Настройка комитета
 
-# Editing this README
+Выбор типа комитета (ГА, СБ, другое)
+Определение количества стран-участниц
+Добавление стран с указанием названий
+Установка минимального количества авторов для резолюций
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+3.3.2 Управление сессиями
 
-## Suggestions for a good README
+Создание новой сессии
+Проведение переклички
+Установка кворума (минимум 1/2 участников)
+Выбор режима работы сессии
+Завершение сессии
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+3.3.3 Управление режимами
 
-## Name
-Choose a self-explaining name for your project.
+Переключение между режимами:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Зачтение позиций
+Формальные дебаты (с выступающими/без)
+Неформальные дебаты под председательством
+Неформальные дебаты без председательства
+Неформальная консультация
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Установка общего таймера для режима
+Настройка индивидуальных таймеров для выступлений делегатов
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+3.4 Модуль работы с резолюциями
+3.4.1 Загрузка проектов резолюций
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Форма загрузки проекта резолюции
+Возможность указания соавторов
+Система подтверждения соавторства через QR-код
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+3.4.2 Модерация резолюций
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Проверка президиумом загруженных проектов
+Принятие или отклонение проекта с комментариями
+Формирование списка допущенных к рассмотрению проектов
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+3.4.3 Работа с рабочим проектом
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Система голосования по проектам (в порядке регистрации)
+Маркировка принятого проекта как рабочего
+Создание согласительной комиссии при необходимости
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+3.4.4 Внесение поправок
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Форма внесения поправок с указанием:
 
-## License
-For open source projects, say how it is licensed.
+Номера пункта / нового пункта после указанного номера
+Типа поправки (исключить/изменить/добавить)
+Текста поправки
+Части резолюции (резолютивная/мотивировочная)
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+
+Модерация поправок президиумом
+Сортировка поправок по части документа и типу действия
+
+3.5 Модуль голосования
+3.5.1 Инициация голосования
+
+Создание голосования президиумом
+Указание требуемого большинства (1/2 или 2/3)
+Выбор типа голосования (простое/поименное)
+
+3.5.2 Проведение голосования
+
+Интерфейс для делегатов для подачи голоса (за/против/воздержался)
+Поименное голосование с возможностью переноса в конец списка
+Учет права вето для постоянных членов Совбеза (если применимо)
+
+3.5.3 Обработка результатов
+
+Подсчет голосов с учетом заданного большинства
+Визуализация результатов в режиме реального времени
+Регистрация результатов в системе
+
+3.6 Модуль статистики
+3.6.1 Учет активности
+
+Отслеживание выступлений делегатов
+Учет внесенных поправок и соавторства
+Регистрация активности в голосованиях
+
+3.6.2 Формирование отчетов
+
+Генерация статистики по делегату
+Формирование общей статистики по комитету
+Экспорт статистики в PDF формате
+
+4. Интерфейсы системы
+4.1 Административный интерфейс
+4.1.1 Панель управления администратора
+
+Список мероприятий с возможностью фильтрации
+Индикаторы активных комитетов
+Счетчики зарегистрированных участников
+Мониторинг состояния комитетов в режиме реального времени
+
+4.1.2 Интерфейс управления комитетами
+
+Форма создания комитета
+Таблица существующих комитетов
+Статистика по комитетам (количество участников, состояние и др.)
+
+4.1.3 Экран генерации QR-кодов
+
+Форма выбора комитета и количества участников
+Предпросмотр сгенерированных QR-кодов
+Кнопки экспорта в PDF
+
+4.2 Интерфейс президиума
+4.2.1 Дашборд комитета
+
+Индикатор текущего режима работы
+Список стран-участниц с индикацией присутствия
+Таймеры (общий и индивидуальный)
+Кнопки управления режимами работы
+
+4.2.2 Экран переклички
+
+Алфавитный список стран с возможностью отметки присутствия
+Индикатор кворума
+Кнопка завершения переклички
+
+4.2.3 Экран управления списком выступающих
+
+Возможность составления списка ораторов
+Индикация текущего выступающего
+Кнопки управления таймером выступления
+
+4.2.4 Экран проверки резолюций
+
+Список загруженных проектов
+Интерфейс просмотра текста проекта
+Кнопки принятия/отклонения с полем для комментария
+
+4.2.5 Экран голосования
+
+Выбор типа голосования
+Список стран для поименного голосования
+Отображение результатов в реальном времени
+
+4.3 Интерфейс делегата
+4.3.1 Экран авторизации
+
+Форма ввода/сканирования QR-кода
+Отображение информации о стране и комитете после авторизации
+
+4.3.2 Личный кабинет делегата
+
+Информация о текущем статусе (комитет, страна)
+Личная статистика активности
+Доступ к функциям загрузки документов и голосования
+
+4.3.3 Экран загрузки резолюции
+
+Форма загрузки проекта резолюции
+Интерфейс выбора соавторов
+Индикация статуса рассмотрения
+
+4.3.4 Экран внесения поправок
+
+Форма для внесения поправок
+Выбор параметров поправки
+Статус рассмотрения поправки
+
+5. Базы данных и хранение
+5.1 Структура базы данных (MongoDB)
+5.1.1 Коллекция мероприятий (Events)
+{
+  _id: ObjectId,
+  name: String,
+  description: String,
+  startDate: Date,
+  endDate: Date,
+  status: String, // active, draft, completed
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.2 Коллекция комитетов (Committees)
+{
+  _id: ObjectId,
+  eventId: ObjectId,
+  name: String,
+  type: String, // GA, SC, other
+  status: String, // setup, active, completed
+  minResolutionAuthors: Number,
+  countries: [
+    {
+      name: String,
+      isPermanentMember: Boolean, // for SC
+      hasVetoRight: Boolean, // for SC
+      token: String // for QR generation
+    }
+  ],
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.3 Коллекция пользователей (Users)
+{
+  _id: ObjectId,
+  role: String, // admin, presidium, delegate
+  username: String,
+  password: String, // hashed, for admin/presidium
+  token: String, // for delegates
+  committeeId: ObjectId,
+  countryName: String, // for delegates
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.4 Коллекция сессий (Sessions)
+{
+  _id: ObjectId,
+  committeeId: ObjectId,
+  number: Number,
+  status: String, // active, completed
+  mode: String, // formal, informal, etc.
+  quorum: Boolean,
+  presentCountries: [String],
+  startTime: Date,
+  endTime: Date,
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.5 Коллекция резолюций (Resolutions)
+{
+  _id: ObjectId,
+  committeeId: ObjectId,
+  title: String,
+  content: String,
+  authors: [String], // country names
+  status: String, // draft, reviewed, accepted, rejected, working
+  submissionTime: Date,
+  reviewTime: Date,
+  reviewComments: String,
+  isWorkingDraft: Boolean,
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.6 Коллекция поправок (Amendments)
+{
+  _id: ObjectId,
+  committeeId: ObjectId,
+  resolutionId: ObjectId,
+  authors: [String], // country names
+  pointNumber: Number,
+  newPointAfter: Number,
+  actionType: String, // delete, modify, add
+  content: String,
+  resolutionPart: String, // operative, preamble
+  status: String, // pending, accepted, rejected
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.7 Коллекция голосований (Votings)
+{
+  _id: ObjectId,
+  committeeId: ObjectId,
+  sessionId: ObjectId,
+  type: String, // simple, roll-call
+  target: String, // resolution, amendment, procedure
+  targetId: ObjectId, // ID of resolution or amendment
+  requiredMajority: String, // simple, qualified
+  votes: [
+    {
+      countryName: String,
+      vote: String, // yes, no, abstain
+      timestamp: Date
+    }
+  ],
+  result: String, // accepted, rejected
+  createdAt: Date,
+  updatedAt: Date
+}
+5.1.8 Коллекция активности (Activities)
+{
+  _id: ObjectId,
+  committeeId: ObjectId,
+  sessionId: ObjectId,
+  countryName: String,
+  activityType: String, // speech, proposal, resolution, amendment, vote
+  duration: Number, // for speeches
+  timestamp: Date,
+  details: Object, // additional details specific to activity type
+  createdAt: Date,
+  updatedAt: Date
+}
+5.2 Файловое хранилище
+
+Хранение загружаемых документов в MongoDB GridFS
+Временное хранение сгенерированных QR-кодов и PDF-документов
+
+6. API и взаимодействие компонентов
+6.1 Основные эндпоинты API
+6.1.1 Аутентификация и авторизация
+
+POST /api/auth/login - логин для админа/президиума
+POST /api/auth/delegate - авторизация делегата по токену
+POST /api/auth/logout - выход из системы
+
+6.1.2 Управление мероприятиями
+
+GET /api/events - список мероприятий
+POST /api/events - создание мероприятия
+GET /api/events/:id - получение мероприятия
+PUT /api/events/:id - обновление мероприятия
+DELETE /api/events/:id - удаление мероприятия
+
+6.1.3 Управление комитетами
+
+GET /api/committees - список комитетов
+POST /api/committees - создание комитета
+GET /api/committees/:id - получение комитета
+PUT /api/committees/:id - обновление комитета
+DELETE /api/committees/:id - удаление комитета
+GET /api/committees/:id/status - статус комитета в реальном времени
+
+6.1.4 Управление сессиями
+
+POST /api/committees/:id/sessions - создание сессии
+GET /api/sessions/:id - получение сессии
+PUT /api/sessions/:id/mode - изменение режима сессии
+PUT /api/sessions/:id/roll-call - обновление переклички
+PUT /api/sessions/:id/complete - завершение сессии
+
+6.1.5 Управление резолюциями
+
+POST /api/resolutions - загрузка резолюции
+GET /api/committees/:id/resolutions - список резолюций комитета
+PUT /api/resolutions/:id/review - проверка резолюции
+PUT /api/resolutions/:id/working - установка резолюции как рабочей
+
+6.1.6 Управление поправками
+
+POST /api/amendments - создание поправки
+GET /api/resolutions/:id/amendments - список поправок к резолюции
+PUT /api/amendments/:id/review - проверка поправки
+
+6.1.7 Управление голосованиями
+
+POST /api/votings - создание голосования
+GET /api/votings/:id - получение результатов голосования
+POST /api/votings/:id/vote - подача голоса делегатом
+
+6.1.8 Статистика и отчеты
+
+GET /api/committees/:id/statistics - статистика комитета
+GET /api/delegates/:id/statistics - статистика делегата
+GET /api/committees/:id/qrcodes - генерация QR-кодов
+GET /api/committees/:id/export - экспорт данных комитета
+
+6.2 WebSocket взаимодействие
+
+Обновление статуса комитета в реальном времени
+Обновление таймеров
+Обновление списка выступающих
+Обновление результатов голосования
+
+7. Нефункциональные требования
+7.1 Производительность
+
+Время отклика API не более 500 мс
+Поддержка одновременного подключения до 100 пользователей
+Задержка обновления WebSocket не более 1 секунды
+
+7.2 Безопасность
+
+Шифрование всех передаваемых данных через HTTPS
+Защита API от несанкционированного доступа
+Хранение паролей в хешированном виде
+Валидация входных данных
+
+7.3 Масштабируемость
+
+Архитектура должна позволять увеличивать нагрузку без существенной перестройки системы
+Код должен быть организован с учетом возможных будущих расширений
+
+7.4 Надежность
+
+Система должна сохранять данные в случае сбоев
+Автоматическое резервное копирование базы данных
+Логирование ошибок и действий пользователей
+
+8. Требования к интерфейсу
+8.1 Общие требования
+
+Адаптивный дизайн для различных устройств
+Минималистичный и интуитивно понятный интерфейс
+Единый стиль оформления в соответствии с Tailwind CSS
+
+8.2 Административный интерфейс
+
+Четкая организация разделов и функций
+Наличие дашборда с основными показателями
+Таблицы с возможностью сортировки и фильтрации
+
+8.3 Интерфейс президиума
+
+Крупные и доступные кнопки управления
+Хорошо заметные таймеры
+Четкое отображение текущего режима и состояния
+
+8.4 Интерфейс делегата
+
+Простой и понятный интерфейс
+Минимум необходимых функций
+Четкое отображение статуса и доступных действий
+
+9. Этапы разработки и сроки
+9.1 Этап 1: Разработка архитектуры и базовой структуры (2 дня)
+
+Проектирование базы данных
+Настройка базового проекта
+Создание основных моделей
+
+9.2 Этап 2: Разработка основных модулей бэкенда (4 дня)
+
+Реализация API для управления мероприятиями и комитетами
+Реализация системы аутентификации
+Разработка модуля сессий и режимов работы
+Разработка системы загрузки резолюций и поправок
+
+9.3 Этап 3: Разработка фронтенда (4 дня)
+
+Создание интерфейса администратора
+Разработка интерфейса президиума
+Разработка интерфейса делегата
+Интеграция с API бэкенда
+
+9.4 Этап 4: Тестирование и доработка (2 дня)
+
+Тестирование функциональности
+Исправление ошибок
+Оптимизация производительности
+Подготовка к развертыванию
+
+10. Требования к документации
+10.1 Техническая документация
+
+Документация по API
+Инструкция по развертыванию
+Схема базы данных
+
+10.2 Пользовательская документация
+
+Руководство для администратора
+Руководство для президиума
+Инструкция для делегатов
+
+11. Требования к тестированию
+11.1 Функциональное тестирование
+
+Тестирование основных сценариев использования
+Проверка всех форм и действий пользователей
+
+11.2 Нагрузочное тестирование
+
+Тестирование системы при одновременной работе множества пользователей
+Проверка времени отклика API
+
+11.3 Тестирование безопасности
+
+Проверка системы аутентификации
+Тестирование защиты от несанкционированного доступа
+
+12. Требования к развертыванию
+12.1 Среда разработки
+
+Node.js 16+ (без TypeScript)
+Vue.js 3
+MongoDB 4+
+
+12.2 Развертывание
+
+Инструкция по установке и настройке
+Скрипты для автоматизации развертывания
+Конфигурационные файлы для различных сред
+
+13. Критерии приемки
+13.1 Функциональные критерии
+
+Все основные функции системы работают в соответствии с требованиями
+Интерфейсы соответствуют утвержденным макетам
+Система обеспечивает корректную работу основных сценариев
+
+13.2 Нефункциональные критерии
+
+Время отклика системы соответствует требованиям
+Система стабильно работает под нагрузкой
+Интерфейс адаптивен и корректно отображается на различных устройствах
+
+14. Приложения и дополнительная информация
+14.1 Глоссарий терминов
+
+Модель ООН - образовательная имитация заседаний различных органов ООН
+Комитет - орган, в рамках которого проводится обсуждение
+Президиум - руководящий орган комитета
+Резолюция - документ, отражающий позицию комитета по обсуждаемому вопросу
+Поправка - изменение, вносимое в текст резолюции
+
+14.2 Ссылки на используемые документы
+
+Правила процедуры ГА ООН
+Правила процедуры ЭКОСОС
+Правила процедуры Совета Безопасности
+
+Данное техническое задание описывает требования к системе mun.uz и является основой для разработки платформы для организации и проведения моделей ООН в соответствии с установленными сроками и технологическим стеком.
