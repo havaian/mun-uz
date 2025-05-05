@@ -1,51 +1,91 @@
 <template>
-    <div class="py-10">
-        <h1 class="text-4xl font-bold text-center text-gray-900 mb-8">Welcome to MUN.UZ</h1>
-
-        <div class="max-w-3xl mx-auto">
-            <div class="card mb-8">
-                <h2 class="text-2xl font-bold mb-4">Platform for Model UN Events</h2>
-                <p class="mb-4">MUN.UZ provides a comprehensive platform for organizing and conducting Model UN events,
-                    with features for administrators, presidium members, and delegates.</p>
-
-                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                    <router-link to="/login" class="btn btn-primary text-center">
-                        Admin/Presidium Login
-                    </router-link>
-                    <router-link to="/delegate/auth" class="btn btn-secondary text-center">
-                        Delegate Access
-                    </router-link>
-                </div>
+    <div class="max-w-7xl mx-auto">
+        <!-- Hero section -->
+        <div class="text-center py-12">
+            <h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
+                <span class="block">Model United Nations</span>
+                <span class="block text-un-blue">Platform</span>
+            </h1>
+            <p class="mt-3 text-base text-gray-500 sm:mx-auto sm:mt-5 sm:max-w-xl sm:text-lg md:mt-5 md:text-xl">
+                A comprehensive platform for organizing and conducting Model UN events, bringing together
+                administrators, presidium members, and delegates.
+            </p>
+            <div class="mt-8 flex justify-center gap-x-4">
+                <router-link to="/login" class="btn btn-primary">
+                    Admin/Presidium Login
+                </router-link>
+                <router-link to="/delegate/auth" class="btn btn-outline">
+                    Delegate Access
+                </router-link>
             </div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Features grid -->
+        <div class="mt-12">
+            <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                <!-- Admin features -->
                 <div class="card">
-                    <h3 class="text-xl font-bold mb-2">Administrators</h3>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li>Create and manage events</li>
-                        <li>Set up committees</li>
-                        <li>Assign presidium members</li>
-                        <li>Generate QR codes for delegates</li>
+                    <div class="flex items-center justify-center h-12 w-12 rounded-md bg-un-blue text-white mb-4">
+                        <UserGroupIcon class="h-6 w-6" />
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Administrators</h3>
+                    <ul class="mt-4 space-y-2 text-gray-500">
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Create and manage events
+                        </li>
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Set up committees
+                        </li>
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Generate delegate QR codes
+                        </li>
                     </ul>
                 </div>
 
+                <!-- Presidium features -->
                 <div class="card">
-                    <h3 class="text-xl font-bold mb-2">Presidium</h3>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li>Manage committee sessions</li>
-                        <li>Conduct roll calls</li>
-                        <li>Review resolutions and amendments</li>
-                        <li>Manage voting procedures</li>
+                    <div class="flex items-center justify-center h-12 w-12 rounded-md bg-un-blue text-white mb-4">
+                        <ClipboardDocumentListIcon class="h-6 w-6" />
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Presidium</h3>
+                    <ul class="mt-4 space-y-2 text-gray-500">
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Manage committee sessions
+                        </li>
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Review resolutions
+                        </li>
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Conduct voting procedures
+                        </li>
                     </ul>
                 </div>
 
+                <!-- Delegate features -->
                 <div class="card">
-                    <h3 class="text-xl font-bold mb-2">Delegates</h3>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li>Access via QR code</li>
-                        <li>Submit resolutions</li>
-                        <li>Propose amendments</li>
-                        <li>Participate in voting</li>
+                    <div class="flex items-center justify-center h-12 w-12 rounded-md bg-un-blue text-white mb-4">
+                        <DocumentTextIcon class="h-6 w-6" />
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Delegates</h3>
+                    <ul class="mt-4 space-y-2 text-gray-500">
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Submit resolutions
+                        </li>
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Propose amendments
+                        </li>
+                        <li class="flex items-center">
+                            <CheckIcon class="h-5 w-5 text-green-500 mr-2" />
+                            Participate in voting
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -53,8 +93,6 @@
     </div>
 </template>
 
-<script>
-export default {
-    name: 'HomeView'
-}
+<script setup>
+import { UserGroupIcon, ClipboardDocumentListIcon, DocumentTextIcon, CheckIcon } from '@heroicons/vue/24/outline'
 </script>

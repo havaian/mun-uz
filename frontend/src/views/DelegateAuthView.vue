@@ -1,154 +1,145 @@
 <template>
-    <div class="h-screen flex flex-col justify-center items-center bg-gray-900 text-white p-4">
-        <h1 class="text-3xl font-bold mb-8">Delegate Authentication</h1>
-
+    <div
+        class="min-h-[calc(100vh-12rem)] bg-gray-50 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="w-full max-w-md">
-            <div v-if="!cameraActive" class="text-center">
-                <button @click="startCamera" class="btn btn-primary mb-4">
-                    Scan QR Code
-                </button>
-                <p class="text-gray-300 text-sm mb-4">
-                    Or enter your token manually:
+            <div class="text-center">
+                <img src="/un-logo.png" alt="UN Logo" class="mx-auto h-12 w-auto" />
+                <h2 class="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+                    Delegate Access
+                </h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    Scan your QR code or enter your token manually
                 </p>
-                <div class="mb-4">
-                    <input v-model="token" type="text" placeholder="Enter your token"
-                        class="w-full px-4 py-2 border rounded-lg bg-gray-800 text-white border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <button @click="submitToken" class="btn btn-secondary w-full" :disabled="!token || loading">
-                    {{ loading ? 'Authenticating...' : 'Submit Token' }}
-                </button>
             </div>
 
-            <div v-else class="text-center">
-                <div class="relative w-full h-64 md:h-80 mb-4 bg-black rounded-lg overflow-hidden">
-                    <div id="qr-scanner" class="w-full h-full"></div>
-                    <div class="absolute inset-0 border-2 border-blue-500 rounded-lg"></div>
+            <div class="mt-8">
+                <div v-if="!showScanner" class="space-y-6">
+                    <!-- Manual token input -->
+                    <div>
+                        <label for="token" class="form-label">Access Token</label>
+                        <input id="token" v-model="token" type="text" class="form-input"
+                            placeholder="Enter your access token" :disabled="loading" />
+                    </div>
+
+                    <div class="flex flex-col space-y-4">
+                        <button type="button" class="btn btn-primary w-full" @click="handleTokenSubmit"
+                            :disabled="!token || loading">
+                            {{ loading ? 'Authenticating...' : 'Submit Token' }}
+                        </button>
+
+                        <button type="button" class="btn btn-outline w-full" @click="startScanner" :disabled="loading">
+                            Scan QR Code
+                        </button>
+                    </div>
                 </div>
 
-                <button @click="stopCamera" class="btn btn-secondary">
-                    Cancel Scan
-                </button>
-            </div>
+                <!-- QR Scanner -->
+                <div v-else class="space-y-6">
+                    <div class="relative aspect-square w-full max-w-sm mx-auto overflow-hidden rounded-lg bg-gray-100">
+                        <video ref="videoElement" class="h-full w-full object-cover"></video>
+                        <div class="absolute inset-0 border-2 border-blue-500"></div>
+                    </div>
 
-            <div v-if="error" class="mt-4 p-3 bg-red-900 text-white rounded-lg">
-                {{ error }}
+                    <button type="button" class="btn btn-outline w-full" @click="stopScanner">
+                        Cancel Scan
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
-<script>
+<script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService } from '../services/api'
+import { useAuthStore } from '../stores/auth'
+import { toast } from 'vue3-toastify'
+import jsQR from 'jsqr'
 
-export default {
-    name: 'DelegateAuthView',
-    setup() {
-        const router = useRouter()
-        const token = ref('')
-        const error = ref('')
-        const loading = ref(false)
-        const cameraActive = ref(false)
-        let scanner = null
+const router = useRouter()
+const authStore = useAuthStore()
 
-        onMounted(() => {
-            // Check if we need to load QR code scanner library
-            if (typeof window !== 'undefined' && !window.QrScanner) {
-                const script = document.createElement('script')
-                script.src = 'https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js'
-                script.async = true
-                document.head.appendChild(script)
-            }
-        })
+const token = ref('')
+const loading = ref(false)
+const showScanner = ref(false)
+const videoElement = ref(null)
+const stream = ref(null)
+const scanInterval = ref(null)
 
-        onBeforeUnmount(() => {
-            stopCamera()
-        })
+async function handleTokenSubmit() {
+    if (!token.value) {
+        toast.error('Please enter a token')
+        return
+    }
 
-        const startCamera = async () => {
-            if (typeof window === 'undefined' || !window.QrScanner) {
-                error.value = 'QR Scanner not available. Please enter your token manually.'
-                return
-            }
-
-            try {
-                cameraActive.value = true
-
-                // Wait for next tick to ensure the element is available
-                await new Promise(resolve => setTimeout(resolve, 100))
-
-                const element = document.getElementById('qr-scanner')
-                if (!element) {
-                    throw new Error('Scanner element not found')
-                }
-
-                scanner = new window.QrScanner(
-                    element,
-                    result => {
-                        token.value = result.data
-                        stopCamera()
-                        submitToken()
-                    },
-                    {
-                        highlightScanRegion: true,
-                        highlightCodeOutline: true,
-                        maxScansPerSecond: 5
-                    }
-                )
-
-                await scanner.start()
-            } catch (err) {
-                console.error('Camera error:', err)
-                error.value = 'Unable to access camera. Please check camera permissions or enter your token manually.'
-                cameraActive.value = false
-            }
-        }
-
-        const stopCamera = () => {
-            if (scanner) {
-                scanner.stop()
-                scanner.destroy()
-                scanner = null
-            }
-            cameraActive.value = false
-        }
-
-        const submitToken = async () => {
-            if (!token.value) {
-                error.value = 'Please enter a token'
-                return
-            }
-
-            error.value = ''
-            loading.value = true
-
-            try {
-                const response = await authService.delegateAuth(token.value)
-
-                // Store token and user data
-                localStorage.setItem('token', response.data.token)
-                localStorage.setItem('user', JSON.stringify(response.data.user))
-
-                // Redirect to delegate dashboard
-                router.push('/delegate')
-            } catch (err) {
-                console.error('Auth error:', err)
-                error.value = err.response?.data?.error || 'Authentication failed. Please check your token and try again.'
-            } finally {
-                loading.value = false
-            }
-        }
-
-        return {
-            token,
-            error,
-            loading,
-            cameraActive,
-            startCamera,
-            stopCamera,
-            submitToken
-        }
+    loading.value = true
+    try {
+        await authStore.delegateAuth(token.value)
+        router.push('/delegate')
+    } finally {
+        loading.value = false
     }
 }
+
+async function startScanner() {
+    try {
+        showScanner.value = true
+        await initializeCamera()
+        startQRScanning()
+    } catch (error) {
+        toast.error('Unable to access camera. Please check permissions or enter token manually.')
+        stopScanner()
+    }
+}
+
+function stopScanner() {
+    if (scanInterval.value) {
+        clearInterval(scanInterval.value)
+        scanInterval.value = null
+    }
+
+    if (stream.value) {
+        stream.value.getTracks().forEach(track => track.stop())
+        stream.value = null
+    }
+
+    showScanner.value = false
+}
+
+async function initializeCamera() {
+    stream.value = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+    })
+
+    if (videoElement.value) {
+        videoElement.value.srcObject = stream.value
+        videoElement.value.play()
+    }
+}
+
+function startQRScanning() {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+
+    scanInterval.value = setInterval(() => {
+        if (videoElement.value && videoElement.value.readyState === videoElement.value.HAVE_ENOUGH_DATA) {
+            canvas.height = videoElement.value.videoHeight
+            canvas.width = videoElement.value.videoWidth
+
+            context.drawImage(videoElement.value, 0, 0, canvas.width, canvas.height)
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+
+            const code = jsQR(imageData.data, imageData.width, imageData.height)
+            if (code) {
+                token.value = code.data
+                stopScanner()
+                handleTokenSubmit()
+            }
+        }
+    }, 100)
+}
+
+onBeforeUnmount(() => {
+    stopScanner()
+})
 </script>

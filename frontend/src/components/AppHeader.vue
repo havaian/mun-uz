@@ -1,71 +1,84 @@
 <template>
-    <header class="bg-white shadow">
-        <nav class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <router-link to="/" class="flex items-center">
-                <span class="text-xl font-bold text-blue-600">MUN.UZ</span>
-            </router-link>
+    <header class="bg-white shadow-sm">
+        <nav class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 justify-between items-center">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <router-link to="/" class="flex items-center space-x-2">
+                        <img src="/un-logo.png" alt="UN Logo" class="h-8 w-auto" />
+                        <span class="text-xl font-semibold text-un-blue">MUN.UZ</span>
+                    </router-link>
+                </div>
 
-            <div v-if="isLoggedIn" class="flex items-center space-x-4">
-                <span class="text-gray-700">{{ userInfo }}</span>
-                <button @click="logout" class="btn btn-secondary text-sm">
-                    Logout
-                </button>
-            </div>
+                <!-- Navigation -->
+                <div class="flex items-center space-x-4">
+                    <template v-if="authStore.isAuthenticated">
+                        <!-- User menu -->
+                        <Menu as="div" class="relative ml-3">
+                            <MenuButton class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+                                <span class="text-sm font-medium">
+                                    {{ userDisplayName }}
+                                </span>
+                                <ChevronDownIcon class="h-5 w-5" />
+                            </MenuButton>
 
-            <div v-else>
-                <router-link to="/login" class="btn btn-primary">Login</router-link>
+                            <transition enter-active-class="transition ease-out duration-100"
+                                enter-from-class="transform opacity-0 scale-95"
+                                enter-to-class="transform opacity-100 scale-100"
+                                leave-active-class="transition ease-in duration-75"
+                                leave-from-class="transform opacity-100 scale-100"
+                                leave-to-class="transform opacity-0 scale-95">
+                                <MenuItems
+                                    class="absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                    <MenuItem v-slot="{ active }">
+                                    <router-link :to="authStore.getDefaultRoute"
+                                        :class="[active ? 'bg-gray-100' : '', 'block px-4 py-2 text-sm text-gray-700']">
+                                        Dashboard
+                                    </router-link>
+                                    </MenuItem>
+                                    <MenuItem v-slot="{ active }">
+                                    <button @click="handleLogout"
+                                        :class="[active ? 'bg-gray-100' : '', 'block w-full text-left px-4 py-2 text-sm text-gray-700']">
+                                        Logout
+                                    </button>
+                                    </MenuItem>
+                                </MenuItems>
+                            </transition>
+                        </Menu>
+                    </template>
+                    <template v-else>
+                        <router-link to="/login" class="btn btn-primary">
+                            Login
+                        </router-link>
+                    </template>
+                </div>
             </div>
         </nav>
     </header>
 </template>
 
-<script>
+<script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { authService } from '../services/api'
+import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
+import { ChevronDownIcon } from '@heroicons/vue/20/solid'
+import { useAuthStore } from '../stores/auth'
 
-export default {
-    name: 'AppHeader',
-    setup() {
-        const router = useRouter()
+const router = useRouter()
+const authStore = useAuthStore()
 
-        // Check if user is logged in
-        const isLoggedIn = computed(() => {
-            return !!localStorage.getItem('token')
-        })
+const userDisplayName = computed(() => {
+    const user = authStore.user
+    if (!user) return ''
 
-        // Get user info for display
-        const userInfo = computed(() => {
-            const user = JSON.parse(localStorage.getItem('user') || '{}')
-            if (user.role === 'delegate') {
-                return `${user.countryName} Delegate`
-            } else if (user.role) {
-                return `${user.username} (${user.role})`
-            }
-            return ''
-        })
-
-        // Logout handler
-        const logout = async () => {
-            try {
-                await authService.logout()
-            } catch (error) {
-                console.error('Logout error:', error)
-            } finally {
-                // Clear local storage
-                localStorage.removeItem('token')
-                localStorage.removeItem('user')
-
-                // Redirect to login
-                router.push('/login')
-            }
-        }
-
-        return {
-            isLoggedIn,
-            userInfo,
-            logout
-        }
+    if (user.role === 'delegate') {
+        return `${user.countryName} Delegate`
     }
+    return `${user.username} (${user.role})`
+})
+
+async function handleLogout() {
+    await authStore.logout()
+    router.push('/login')
 }
 </script>
