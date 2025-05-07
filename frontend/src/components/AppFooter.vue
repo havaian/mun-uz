@@ -122,7 +122,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
-import { eventsService } from '../../services/api'
+import { eventsService } from '../services/api'
 import { toast } from 'vue3-toastify'
 import { format } from 'date-fns'
 

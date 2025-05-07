@@ -1,34 +1,55 @@
-const { getDb } = require('../../db');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
+
+// Define Activity Schema
+const activitySchema = new mongoose.Schema({
+    committeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Committee',
+        required: true
+    },
+    sessionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Session',
+        required: true
+    },
+    countryName: {
+        type: String,
+        required: true
+    },
+    activityType: {
+        type: String,
+        enum: ['speech', 'resolution', 'amendment', 'vote', 'proposal'],
+        required: true
+    },
+    duration: {
+        type: Number
+    },
+    timestamp: {
+        type: Date,
+        default: Date.now
+    },
+    details: {
+        type: mongoose.Schema.Types.Mixed
+    }
+}, { timestamps: true });
+
+// Create model
+const Activity = mongoose.model('Activity', activitySchema);
 
 class StatisticsModel {
-    constructor() {
-        this.collection = getDb().collection('activities');
-    }
-
     async recordActivity(activityData) {
-        // Convert IDs to ObjectId
-        if (activityData.committeeId && typeof activityData.committeeId === 'string') {
-            activityData.committeeId = new ObjectId(activityData.committeeId);
-        }
-
-        if (activityData.sessionId && typeof activityData.sessionId === 'string') {
-            activityData.sessionId = new ObjectId(activityData.sessionId);
-        }
-
-        // Add timestamps
+        // Set timestamp
         activityData.timestamp = new Date();
-        activityData.createdAt = new Date();
-        activityData.updatedAt = new Date();
 
-        const result = await this.collection.insertOne(activityData);
-        return { ...activityData, _id: result.insertedId };
+        const newActivity = new Activity(activityData);
+        await newActivity.save();
+        return newActivity;
     }
 
     async getCommitteeStatistics(committeeId) {
-        const pipeline = [
+        return Activity.aggregate([
             {
-                $match: { committeeId: new ObjectId(committeeId) }
+                $match: { committeeId: mongoose.Types.ObjectId(committeeId) }
             },
             {
                 $group: {
@@ -64,31 +85,20 @@ class StatisticsModel {
             {
                 $sort: { totalActivities: -1 }
             }
-        ];
-
-        return this.collection.aggregate(pipeline).toArray();
+        ]);
     }
 
     async getDelegateStatistics(committeeId, countryName) {
-        const pipeline = [
-            {
-                $match: {
-                    committeeId: new ObjectId(committeeId),
-                    countryName: countryName
-                }
-            },
-            {
-                $sort: { timestamp: -1 }
-            }
-        ];
-
-        return this.collection.aggregate(pipeline).toArray();
+        return Activity.find({
+            committeeId,
+            countryName
+        }).sort({ timestamp: -1 });
     }
 
     async getActivityBreakdown(committeeId) {
-        const pipeline = [
+        return Activity.aggregate([
             {
-                $match: { committeeId: new ObjectId(committeeId) }
+                $match: { committeeId: mongoose.Types.ObjectId(committeeId) }
             },
             {
                 $group: {
@@ -96,44 +106,50 @@ class StatisticsModel {
                     count: { $sum: 1 }
                 }
             }
-        ];
-
-        return this.collection.aggregate(pipeline).toArray();
+        ]);
     }
 
     async getCommitteeSummary(committeeId) {
-        // Get committee activity statistics
-        const activityStats = await this.getActivityBreakdown(committeeId);
+        const [
+            activityStats,
+            countryStats,
+            sessionCount,
+            activeSessionsCount,
+            resolutionCount,
+            acceptedResolutionsCount,
+            workingDraftsCount,
+            amendmentCount,
+            acceptedAmendmentsCount,
+            votingCount,
+            acceptedVotingsCount,
+            rejectedVotingsCount
+        ] = await Promise.all([
+            this.getActivityBreakdown(committeeId),
+            this.getCommitteeStatistics(committeeId),
+            mongoose.model('Session').countDocuments({ committeeId }),
+            mongoose.model('Session').countDocuments({ committeeId, status: 'active' }),
+            mongoose.model('Resolution').countDocuments({ committeeId }),
+            mongoose.model('Resolution').countDocuments({ committeeId, status: 'accepted' }),
+            mongoose.model('Resolution').countDocuments({ committeeId, isWorkingDraft: true }),
+            mongoose.model('Amendment').countDocuments({ committeeId }),
+            mongoose.model('Amendment').countDocuments({ committeeId, status: 'accepted' }),
+            mongoose.model('Voting').countDocuments({ committeeId }),
+            mongoose.model('Voting').countDocuments({ committeeId, result: 'accepted' }),
+            mongoose.model('Voting').countDocuments({ committeeId, result: 'rejected' })
+        ]);
 
-        // Get country participation statistics
-        const countryStats = await this.getCommitteeStatistics(committeeId);
-
-        // Get session statistics from sessions collection
-        const sessionsCollection = getDb().collection('sessions');
-        const sessionStats = await sessionsCollection.find({
-            committeeId: new ObjectId(committeeId)
-        }).toArray();
-
-        // Get resolution statistics from resolutions collection
-        const resolutionsCollection = getDb().collection('resolutions');
-        const resolutionStats = await resolutionsCollection.find({
-            committeeId: new ObjectId(committeeId)
-        }).toArray();
-
-        // Get amendment statistics from amendments collection
-        const amendmentsCollection = getDb().collection('amendments');
-        const amendmentStats = await amendmentsCollection.find({
-            committeeId: new ObjectId(committeeId)
-        }).toArray();
-
-        // Get voting statistics from votings collection
-        const votingsCollection = getDb().collection('votings');
-        const votingStats = await votingsCollection.find({
-            committeeId: new ObjectId(committeeId)
-        }).toArray();
+        // Get committee info
+        const committee = await mongoose.model('Committee').findById(committeeId);
 
         // Compile summary
         return {
+            committeeInfo: committee ? {
+                _id: committee._id,
+                name: committee.name,
+                type: committee.type,
+                status: committee.status,
+                countryCount: committee.countries ? committee.countries.length : 0
+            } : null,
             activitySummary: {
                 totalActivities: activityStats.reduce((acc, curr) => acc + curr.count, 0),
                 activityBreakdown: activityStats
@@ -144,21 +160,21 @@ class StatisticsModel {
                 countryBreakdown: countryStats
             },
             sessionSummary: {
-                totalSessions: sessionStats.length,
-                completedSessions: sessionStats.filter(s => s.status === 'completed').length,
-                activeSessions: sessionStats.filter(s => s.status === 'active').length
+                totalSessions: sessionCount,
+                completedSessions: sessionCount - activeSessionsCount,
+                activeSessions: activeSessionsCount
             },
             documentSummary: {
-                totalResolutions: resolutionStats.length,
-                acceptedResolutions: resolutionStats.filter(r => r.status === 'accepted').length,
-                workingDrafts: resolutionStats.filter(r => r.isWorkingDraft).length,
-                totalAmendments: amendmentStats.length,
-                acceptedAmendments: amendmentStats.filter(a => a.status === 'accepted').length
+                totalResolutions: resolutionCount,
+                acceptedResolutions: acceptedResolutionsCount,
+                workingDrafts: workingDraftsCount,
+                totalAmendments: amendmentCount,
+                acceptedAmendments: acceptedAmendmentsCount
             },
             votingSummary: {
-                totalVotings: votingStats.length,
-                acceptedItems: votingStats.filter(v => v.result === 'accepted').length,
-                rejectedItems: votingStats.filter(v => v.result === 'rejected').length
+                totalVotings: votingCount,
+                acceptedItems: acceptedVotingsCount,
+                rejectedItems: rejectedVotingsCount
             }
         };
     }

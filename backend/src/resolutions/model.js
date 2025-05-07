@@ -1,98 +1,122 @@
-const { getDb } = require('../../db');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
+
+// Define Resolution Schema
+const resolutionSchema = new mongoose.Schema({
+    committeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Committee',
+        required: true
+    },
+    title: {
+        type: String,
+        required: true
+    },
+    content: {
+        type: String,
+        required: true
+    },
+    authors: [{
+        type: String
+    }],
+    status: {
+        type: String,
+        enum: ['draft', 'reviewed', 'accepted', 'rejected', 'working'],
+        default: 'draft'
+    },
+    submissionTime: {
+        type: Date,
+        default: Date.now
+    },
+    reviewTime: {
+        type: Date
+    },
+    reviewComments: {
+        type: String
+    },
+    isWorkingDraft: {
+        type: Boolean,
+        default: false
+    }
+}, { timestamps: true });
+
+// Create model
+const Resolution = mongoose.model('Resolution', resolutionSchema);
 
 class ResolutionsModel {
-    constructor() {
-        this.collection = getDb().collection('resolutions');
-    }
-
     async getResolutionsForCommittee(committeeId) {
-        return this.collection.find({
-            committeeId: new ObjectId(committeeId)
-        }).sort({ submissionTime: -1 }).toArray();
+        return Resolution.find({ committeeId }).sort({ submissionTime: -1 });
     }
 
     async getResolutionById(id) {
-        return this.collection.findOne({ _id: new ObjectId(id) });
+        return Resolution.findById(id);
     }
 
     async getWorkingDraftForCommittee(committeeId) {
-        return this.collection.findOne({
-            committeeId: new ObjectId(committeeId),
+        return Resolution.findOne({
+            committeeId,
             isWorkingDraft: true
         });
     }
 
     async createResolution(resolutionData) {
-        // Convert committeeId to ObjectId
-        if (resolutionData.committeeId && typeof resolutionData.committeeId === 'string') {
-            resolutionData.committeeId = new ObjectId(resolutionData.committeeId);
-        }
-
-        // Add timestamps
-        resolutionData.createdAt = new Date();
-        resolutionData.updatedAt = new Date();
-        resolutionData.submissionTime = new Date();
-
-        // Set initial status to draft
+        // Set initial values
         resolutionData.status = 'draft';
         resolutionData.isWorkingDraft = false;
+        resolutionData.submissionTime = new Date();
 
-        const result = await this.collection.insertOne(resolutionData);
-        return { ...resolutionData, _id: result.insertedId };
+        const newResolution = new Resolution(resolutionData);
+        await newResolution.save();
+        return newResolution;
     }
 
     async reviewResolution(id, status, reviewComments) {
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
+        return Resolution.findByIdAndUpdate(
+            id,
             {
-                $set: {
-                    status,
-                    reviewComments,
-                    reviewTime: new Date(),
-                    updatedAt: new Date()
-                }
-            }
+                status,
+                reviewComments,
+                reviewTime: new Date()
+            },
+            { new: true }
         );
     }
 
     async setAsWorkingDraft(id) {
         // First reset any existing working draft
-        await this.collection.updateMany(
+        await Resolution.updateMany(
             { isWorkingDraft: true },
-            { $set: { isWorkingDraft: false, updatedAt: new Date() } }
+            {
+                isWorkingDraft: false,
+                updatedAt: new Date()
+            }
         );
 
         // Then set the new working draft
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
+        return Resolution.findByIdAndUpdate(
+            id,
             {
-                $set: {
-                    isWorkingDraft: true,
-                    status: 'working',
-                    updatedAt: new Date()
-                }
-            }
+                isWorkingDraft: true,
+                status: 'working'
+            },
+            { new: true }
         );
     }
 
     async updateResolution(id, resolutionData) {
-        // Update timestamp
-        resolutionData.updatedAt = new Date();
-
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: resolutionData }
+        return Resolution.findByIdAndUpdate(
+            id,
+            resolutionData,
+            { new: true }
         );
     }
 
     async confirmCoAuthor(id, countryName) {
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
+        return Resolution.findByIdAndUpdate(
+            id,
             {
-                $addToSet: { authors: countryName },
-                $set: { updatedAt: new Date() }
-            }
+                $addToSet: { authors: countryName }
+            },
+            { new: true }
         );
     }
 }

@@ -1,8 +1,18 @@
-const fastify = require('fastify')({ logger: true });
+const fastify = require('fastify')({ 
+    logger: true,
+    schemaController: {
+        compilersFactory: {
+            buildValidator: () => () => true
+        }
+    }
+});
 const path = require('path');
 require('dotenv').config();
 const { connectToDatabase } = require('./db');
 const websocketService = require('./src/websocket/service');
+
+// Connect to MongoDB
+connectToDatabase();
 
 // Register plugins
 fastify.register(require('@fastify/cors'), {
@@ -45,9 +55,26 @@ fastify.register(require('@fastify/swagger'), {
         host: 'mun.uz',
         schemes: ['http', 'https'],
         consumes: ['application/json'],
-        produces: ['application/json']
+        produces: ['application/json'],
+        securityDefinitions: {
+            apiKey: {
+                type: 'apiKey',
+                name: 'Authorization',
+                in: 'header'
+            }
+        }
     },
-    exposeRoute: true
+    exposeRoute: true,
+    transform: ({ schema, url, method }) => {
+        // Ensure all routes have a description field
+        if (!schema) schema = {};
+        if (!schema.description) schema.description = `${method.toUpperCase()} ${url} endpoint`;
+        
+        // Add response types if not defined
+        if (!schema.response) schema.response = {};
+        
+        return { schema, url, method };
+    }
 });
 
 // Authentication hook
@@ -73,31 +100,14 @@ fastify.register(require('./src/votings/routes'), { prefix: '/api/votings' });
 fastify.register(require('./src/statistics/routes'), { prefix: '/api/statistics' });
 fastify.register(require('./src/countries/routes'), { prefix: '/api/countries' });
 
-// Update the static files configuration to serve the Vue.js build
-fastify.register(require('@fastify/static'), {
-    root: path.join(__dirname, 'client/dist'),
-    prefix: '/',
-    decorateReply: false // the reply decorator has been added by the first plugin registration
-});
-
 // Health check route
 fastify.get('/health', async () => {
     return { status: 'ok', timestamp: new Date() };
 });
 
-// Catch-all route to serve the Vue.js app
-fastify.get('*', {
-  handler: (request, reply) => {
-    reply.sendFile('index.html');
-  }
-});
-
 // Start the server
 const start = async () => {
     try {
-        // Connect to MongoDB
-        await connectToDatabase();
-
         await fastify.listen({
             port: process.env.PORT || 3000,
             host: '0.0.0.0'

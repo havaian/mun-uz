@@ -150,7 +150,7 @@
 import { ref, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { TrashIcon } from '@heroicons/vue/24/outline'
-import { committeesService, countriesService } from '../../services/api'
+import { committeesService } from '../../services/api'
 import { toast } from 'vue3-toastify'
 
 const committees = ref([])

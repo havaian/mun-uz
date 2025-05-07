@@ -1,76 +1,91 @@
-const { getDb } = require('../../db');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
+
+// Define Amendment Schema
+const amendmentSchema = new mongoose.Schema({
+    committeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Committee',
+        required: true
+    },
+    resolutionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Resolution',
+        required: true
+    },
+    authors: [{
+        type: String
+    }],
+    pointNumber: {
+        type: Number
+    },
+    newPointAfter: {
+        type: Number
+    },
+    actionType: {
+        type: String,
+        enum: ['delete', 'modify', 'add'],
+        required: true
+    },
+    content: {
+        type: String
+    },
+    resolutionPart: {
+        type: String,
+        enum: ['operative', 'preamble'],
+        required: true
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'accepted', 'rejected'],
+        default: 'pending'
+    }
+}, { timestamps: true });
+
+// Create model
+const Amendment = mongoose.model('Amendment', amendmentSchema);
 
 class AmendmentsModel {
-    constructor() {
-        this.collection = getDb().collection('amendments');
-    }
-
     async getAmendmentsForCommittee(committeeId) {
-        return this.collection.find({
-            committeeId: new ObjectId(committeeId)
-        }).sort({ createdAt: -1 }).toArray();
+        return Amendment.find({ committeeId }).sort({ createdAt: -1 });
     }
 
     async getAmendmentsForResolution(resolutionId) {
-        return this.collection.find({
-            resolutionId: new ObjectId(resolutionId)
-        }).sort({
-            // Sort by resolution part (operative first, then preamble)
+        return Amendment.find({ resolutionId }).sort({
             resolutionPart: 1,
-            // Then by action type (delete first, modify, then add)
             actionType: 1,
-            // Then by point number
             pointNumber: 1,
-            // Then by new point after
             newPointAfter: 1
-        }).toArray();
+        });
     }
 
     async getAmendmentById(id) {
-        return this.collection.findOne({ _id: new ObjectId(id) });
+        return Amendment.findById(id);
     }
 
     async createAmendment(amendmentData) {
-        // Convert IDs to ObjectId
-        if (amendmentData.committeeId && typeof amendmentData.committeeId === 'string') {
-            amendmentData.committeeId = new ObjectId(amendmentData.committeeId);
-        }
-
-        if (amendmentData.resolutionId && typeof amendmentData.resolutionId === 'string') {
-            amendmentData.resolutionId = new ObjectId(amendmentData.resolutionId);
-        }
-
-        // Add timestamps
-        amendmentData.createdAt = new Date();
-        amendmentData.updatedAt = new Date();
-
         // Set initial status to pending
         amendmentData.status = 'pending';
 
-        const result = await this.collection.insertOne(amendmentData);
-        return { ...amendmentData, _id: result.insertedId };
+        const newAmendment = new Amendment(amendmentData);
+        await newAmendment.save();
+        return newAmendment;
     }
 
     async reviewAmendment(id, status) {
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
+        return Amendment.findByIdAndUpdate(
+            id,
             {
-                $set: {
-                    status,
-                    updatedAt: new Date()
-                }
-            }
+                status
+            },
+            { new: true }
         );
     }
 
     async updateAmendment(id, amendmentData) {
-        // Update timestamp
-        amendmentData.updatedAt = new Date();
-
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: amendmentData }
+        return Amendment.findByIdAndUpdate(
+            id,
+            amendmentData,
+            { new: true }
         );
     }
 }

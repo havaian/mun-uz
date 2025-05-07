@@ -1,97 +1,53 @@
-const CountriesController = require('./controller');
+const CountriesModel = require('./model');
 
-// Define routes for countries module
-async function routes(fastify, options) {
-    // Get all countries
-    fastify.route({
-        method: 'GET',
-        url: '/',
-        schema: {
-            response: {
-                200: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            name: {
-                                type: 'object',
-                                properties: {
-                                    en: { type: 'string' },
-                                    ru: { type: 'string' }
-                                }
-                            },
-                            code: { type: 'string' }
-                        }
-                    }
-                }
-            }
-        },
-        handler: CountriesController.getAllCountries.bind(CountriesController)
-    });
+class CountriesController {
+    async getAllCountries(request, reply) {
+        try {
+            const countries = await CountriesModel.getAllCountries();
+            return countries;
+        } catch (error) {
+            request.log.error(error);
+            return reply.code(500).send({ error: 'Internal Server Error' });
+        }
+    }
 
-    // Get country by ISO code
-    fastify.route({
-        method: 'GET',
-        url: '/:code',
-        schema: {
-            params: {
-                code: { type: 'string', minLength: 2, maxLength: 2 }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'object',
-                            properties: {
-                                en: { type: 'string' },
-                                ru: { type: 'string' }
-                            }
-                        },
-                        code: { type: 'string' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CountriesController.getCountryByCode.bind(CountriesController)
-    });
+    async getCountryByCode(request, reply) {
+        try {
+            const { code } = request.params;
 
-    // Search countries by name
-    fastify.route({
-        method: 'GET',
-        url: '/search',
-        schema: {
-            querystring: {
-                query: { type: 'string' },
-                language: { type: 'string', enum: ['en', 'ru'], default: 'en' }
-            },
-            response: {
-                200: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            name: {
-                                type: 'object',
-                                properties: {
-                                    en: { type: 'string' },
-                                    ru: { type: 'string' }
-                                }
-                            },
-                            code: { type: 'string' }
-                        }
-                    }
-                }
+            const country = await CountriesModel.getCountryByCode(code);
+
+            if (!country) {
+                return reply.code(404).send({ error: 'Country not found' });
             }
-        },
-        handler: CountriesController.searchCountries.bind(CountriesController)
-    });
+
+            return country;
+        } catch (error) {
+            request.log.error(error);
+            return reply.code(500).send({ error: 'Internal Server Error' });
+        }
+    }
+
+    async searchCountries(request, reply) {
+        try {
+            const { query, language } = request.query;
+
+            if (!query || query.trim() === '') {
+                // Return all countries if no query provided
+                const countries = await CountriesModel.getAllCountries();
+                return countries;
+            }
+
+            // Use the provided language or default to English
+            const searchLanguage = language && ['en', 'ru'].includes(language) ? language : 'en';
+
+            const results = await CountriesModel.searchCountries(query, searchLanguage);
+            return results;
+        } catch (error) {
+            request.log.error(error);
+            return reply.code(500).send({ error: 'Internal Server Error' });
+        }
+    }
 }
 
-module.exports = routes;
+module.exports = new CountriesController();

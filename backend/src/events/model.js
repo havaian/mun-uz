@@ -1,24 +1,43 @@
-const { getDb } = require('../../db');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
+
+// Define Event Schema
+const eventSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
+    },
+    startDate: {
+        type: Date,
+        required: true
+    },
+    endDate: {
+        type: Date,
+        required: true
+    },
+    status: {
+        type: String,
+        enum: ['draft', 'active', 'completed'],
+        default: 'draft'
+    }
+}, { timestamps: true });
+
+// Create model
+const Event = mongoose.model('Event', eventSchema);
 
 class EventsModel {
-    constructor() {
-        this.collection = getDb().collection('events');
-    }
-
     async getAllEvents(filter = {}) {
-        return this.collection.find(filter).sort({ startDate: -1 }).toArray();
+        return Event.find(filter).sort({ startDate: -1 });
     }
 
     async getEventById(id) {
-        return this.collection.findOne({ _id: new ObjectId(id) });
+        return Event.findById(id);
     }
 
     async createEvent(eventData) {
-        // Add timestamps
-        eventData.createdAt = new Date();
-        eventData.updatedAt = new Date();
-
         // Convert dates to Date objects if they're strings
         if (typeof eventData.startDate === 'string') {
             eventData.startDate = new Date(eventData.startDate);
@@ -27,14 +46,12 @@ class EventsModel {
             eventData.endDate = new Date(eventData.endDate);
         }
 
-        const result = await this.collection.insertOne(eventData);
-        return { ...eventData, _id: result.insertedId };
+        const newEvent = new Event(eventData);
+        await newEvent.save();
+        return newEvent;
     }
 
     async updateEvent(id, eventData) {
-        // Update timestamp
-        eventData.updatedAt = new Date();
-
         // Convert dates to Date objects if they're strings
         if (typeof eventData.startDate === 'string') {
             eventData.startDate = new Date(eventData.startDate);
@@ -43,14 +60,15 @@ class EventsModel {
             eventData.endDate = new Date(eventData.endDate);
         }
 
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: eventData }
+        return Event.findByIdAndUpdate(
+            id,
+            eventData,
+            { new: true }
         );
     }
 
     async deleteEvent(id) {
-        return this.collection.deleteOne({ _id: new ObjectId(id) });
+        return Event.findByIdAndDelete(id);
     }
 }
 

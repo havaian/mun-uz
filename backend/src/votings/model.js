@@ -1,107 +1,123 @@
-const { getDb } = require('../../db');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
+
+// Define Vote Schema (as a subdocument)
+const voteSchema = new mongoose.Schema({
+    countryName: {
+        type: String,
+        required: true
+    },
+    vote: {
+        type: String,
+        enum: ['yes', 'no', 'abstain'],
+        required: true
+    },
+    timestamp: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+// Define Voting Schema
+const votingSchema = new mongoose.Schema({
+    committeeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Committee',
+        required: true
+    },
+    sessionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Session',
+        required: true
+    },
+    type: {
+        type: String,
+        enum: ['simple', 'roll-call'],
+        required: true
+    },
+    target: {
+        type: String,
+        enum: ['resolution', 'amendment', 'procedure'],
+        required: true
+    },
+    targetId: {
+        type: mongoose.Schema.Types.ObjectId,
+        refPath: 'target'
+    },
+    requiredMajority: {
+        type: String,
+        enum: ['simple', 'qualified'],
+        required: true
+    },
+    votes: [voteSchema],
+    result: {
+        type: String,
+        enum: ['accepted', 'rejected', null],
+        default: null
+    }
+}, { timestamps: true });
+
+// Create model
+const Voting = mongoose.model('Voting', votingSchema);
 
 class VotingsModel {
-    constructor() {
-        this.collection = getDb().collection('votings');
-    }
-
     async getVotingsForCommittee(committeeId) {
-        return this.collection.find({
-            committeeId: new ObjectId(committeeId)
-        }).sort({ createdAt: -1 }).toArray();
+        return Voting.find({ committeeId }).sort({ createdAt: -1 });
     }
 
     async getVotingsForSession(sessionId) {
-        return this.collection.find({
-            sessionId: new ObjectId(sessionId)
-        }).sort({ createdAt: -1 }).toArray();
+        return Voting.find({ sessionId }).sort({ createdAt: -1 });
     }
 
     async getVotingById(id) {
-        return this.collection.findOne({ _id: new ObjectId(id) });
+        return Voting.findById(id);
     }
 
     async createVoting(votingData) {
-        // Convert IDs to ObjectId
-        if (votingData.committeeId && typeof votingData.committeeId === 'string') {
-            votingData.committeeId = new ObjectId(votingData.committeeId);
-        }
-
-        if (votingData.sessionId && typeof votingData.sessionId === 'string') {
-            votingData.sessionId = new ObjectId(votingData.sessionId);
-        }
-
-        if (votingData.targetId && typeof votingData.targetId === 'string') {
-            votingData.targetId = new ObjectId(votingData.targetId);
-        }
-
-        // Add timestamps
-        votingData.createdAt = new Date();
-        votingData.updatedAt = new Date();
-
-        // Initialize votes array if not provided
-        if (!votingData.votes) {
-            votingData.votes = [];
-        }
-
-        // Result initially set to null
+        // Set initial values
+        votingData.votes = [];
         votingData.result = null;
 
-        const result = await this.collection.insertOne(votingData);
-        return { ...votingData, _id: result.insertedId };
+        const newVoting = new Voting(votingData);
+        await newVoting.save();
+        return newVoting;
     }
 
     async submitVote(id, countryName, vote) {
+        const voting = await Voting.findById(id);
+
         // Check if country has already voted
-        const voting = await this.getVotingById(id);
         const existingVoteIndex = voting.votes.findIndex(v => v.countryName === countryName);
 
         // If already voted, update vote
         if (existingVoteIndex !== -1) {
-            return this.collection.updateOne(
-                { _id: new ObjectId(id) },
-                {
-                    $set: {
-                        [`votes.${existingVoteIndex}.vote`]: vote,
-                        [`votes.${existingVoteIndex}.timestamp`]: new Date(),
-                        updatedAt: new Date()
-                    }
-                }
-            );
+            voting.votes[existingVoteIndex].vote = vote;
+            voting.votes[existingVoteIndex].timestamp = new Date();
+        } else {
+            // Otherwise, add new vote
+            voting.votes.push({
+                countryName,
+                vote,
+                timestamp: new Date()
+            });
         }
 
-        // Otherwise, add new vote
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
-            {
-                $push: {
-                    votes: {
-                        countryName,
-                        vote,
-                        timestamp: new Date()
-                    }
-                },
-                $set: { updatedAt: new Date() }
-            }
-        );
+        await voting.save();
+        return voting;
     }
 
     async finalizeVoting(id, result) {
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
+        return Voting.findByIdAndUpdate(
+            id,
             {
-                $set: {
-                    result,
-                    updatedAt: new Date()
-                }
-            }
+                result
+            },
+            { new: true }
         );
     }
 
     async getActiveVotingForCommittee(committeeId) {
-        return this.collection.findOne({
-            committeeId: new ObjectId(committeeId),
+        return Voting.findOne({
+            committeeId,
             result: null
         });
     }

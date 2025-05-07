@@ -3,13 +3,10 @@ version: '3.8'
 services:
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
-    container_name: mun-uz-api-dev
+    container_name: mun-uz-api
     restart: unless-stopped
-    volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -23,11 +20,11 @@ services:
       - mun-network
 
   mongo:
-    image: mongo:4.4
-    container_name: mun-uz-mongo-dev
+    image: mongo:latest
+    container_name: mun-uz-mongo
     restart: unless-stopped
     volumes:
-      - mongo-data-dev:/data/db
+      - mongo-data:/data/db
     ports:
       - "127.0.0.1:27017:27017"
     networks:
@@ -38,5 +35,5 @@ networks:
     driver: bridge
 
 volumes:
-  mongo-data-dev:
+  mongo-data:
     driver: local

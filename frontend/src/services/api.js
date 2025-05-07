@@ -2,7 +2,7 @@ import axios from 'axios'
 import { toast } from 'vue3-toastify'
 
 const api = axios.create({
-    baseURL: '/api',
+    baseURL: 'http://localhost:3000/api',
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',

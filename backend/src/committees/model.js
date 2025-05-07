@@ -1,40 +1,71 @@
-const { getDb } = require('../../db');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
 const crypto = require('crypto');
 
-class CommitteesModel {
-    constructor() {
-        this.collection = getDb().collection('committees');
+// Define Country Schema (as a subdocument)
+const countrySchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true
+    },
+    isPermanentMember: {
+        type: Boolean,
+        default: false
+    },
+    hasVetoRight: {
+        type: Boolean,
+        default: false
+    },
+    token: {
+        type: String
     }
+});
 
+// Define Committee Schema
+const committeeSchema = new mongoose.Schema({
+    eventId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Event',
+        required: true
+    },
+    name: {
+        type: String,
+        required: true
+    },
+    type: {
+        type: String,
+        enum: ['GA', 'SC', 'other'],
+        required: true
+    },
+    status: {
+        type: String,
+        enum: ['setup', 'active', 'completed'],
+        default: 'setup'
+    },
+    minResolutionAuthors: {
+        type: Number,
+        default: 3
+    },
+    countries: [countrySchema]
+}, { timestamps: true });
+
+// Create model
+const Committee = mongoose.model('Committee', committeeSchema);
+
+class CommitteesModel {
     async getAllCommittees(filter = {}) {
-        return this.collection.find(filter).toArray();
+        return Committee.find(filter);
     }
 
     async getCommitteesForEvent(eventId) {
-        return this.collection.find({ eventId: new ObjectId(eventId) }).toArray();
+        return Committee.find({ eventId });
     }
 
     async getCommitteeById(id) {
-        return this.collection.findOne({ _id: new ObjectId(id) });
+        return Committee.findById(id);
     }
 
     async createCommittee(committeeData) {
-        // Convert eventId to ObjectId
-        if (committeeData.eventId && typeof committeeData.eventId === 'string') {
-            committeeData.eventId = new ObjectId(committeeData.eventId);
-        }
-
-        // Add timestamps
-        committeeData.createdAt = new Date();
-        committeeData.updatedAt = new Date();
-
-        // Set initial status if not provided
-        if (!committeeData.status) {
-            committeeData.status = 'setup';
-        }
-
-        // Generate tokens for countries if they exist in the data
+        // Generate tokens for countries if they exist
         if (committeeData.countries && Array.isArray(committeeData.countries)) {
             committeeData.countries = committeeData.countries.map(country => ({
                 ...country,
@@ -44,31 +75,25 @@ class CommitteesModel {
             committeeData.countries = [];
         }
 
-        const result = await this.collection.insertOne(committeeData);
-        return { ...committeeData, _id: result.insertedId };
+        const newCommittee = new Committee(committeeData);
+        await newCommittee.save();
+        return newCommittee;
     }
 
     async updateCommittee(id, committeeData) {
-        // Convert eventId to ObjectId if it's a string
-        if (committeeData.eventId && typeof committeeData.eventId === 'string') {
-            committeeData.eventId = new ObjectId(committeeData.eventId);
-        }
-
-        // Update timestamp
-        committeeData.updatedAt = new Date();
-
-        return this.collection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: committeeData }
+        return Committee.findByIdAndUpdate(
+            id,
+            committeeData,
+            { new: true }
         );
     }
 
     async deleteCommittee(id) {
-        return this.collection.deleteOne({ _id: new ObjectId(id) });
+        return Committee.findByIdAndDelete(id);
     }
 
     async getCommitteeStatus(id) {
-        const committee = await this.getCommitteeById(id);
+        const committee = await Committee.findById(id);
 
         if (!committee) {
             return null;
@@ -84,9 +109,9 @@ class CommitteesModel {
     }
 
     async updateCountry(committeeId, countryName, updates) {
-        return this.collection.updateOne(
+        return Committee.updateOne(
             {
-                _id: new ObjectId(committeeId),
+                _id: committeeId,
                 'countries.name': countryName
             },
             {
@@ -99,7 +124,7 @@ class CommitteesModel {
     }
 
     async generateQRCodes(committeeId) {
-        const committee = await this.getCommitteeById(committeeId);
+        const committee = await Committee.findById(committeeId);
 
         if (!committee || !committee.countries) {
             return [];

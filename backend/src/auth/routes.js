@@ -8,12 +8,14 @@ async function routes(fastify, options) {
         method: 'POST',
         url: '/login',
         schema: {
+            description: 'Login route for administrators and presidium members',
             body: Joi.object({
                 username: Joi.string().required(),
                 password: Joi.string().required()
             }).required(),
             response: {
                 200: {
+                    description: 'Successful response',
                     type: 'object',
                     properties: {
                         token: { type: 'string' },
@@ -28,6 +30,7 @@ async function routes(fastify, options) {
                     }
                 },
                 401: {
+                    description: 'Unauthorized',
                     type: 'object',
                     properties: {
                         error: { type: 'string' }
@@ -43,11 +46,13 @@ async function routes(fastify, options) {
         method: 'POST',
         url: '/delegate',
         schema: {
+            description: 'Authentication route for delegates using QR code tokens',
             body: Joi.object({
                 token: Joi.string().required()
             }).required(),
             response: {
                 200: {
+                    description: 'Successful response',
                     type: 'object',
                     properties: {
                         token: { type: 'string' },
@@ -64,6 +69,7 @@ async function routes(fastify, options) {
                     }
                 },
                 401: {
+                    description: 'Unauthorized',
                     type: 'object',
                     properties: {
                         error: { type: 'string' }
@@ -80,8 +86,10 @@ async function routes(fastify, options) {
         url: '/logout',
         preHandler: fastify.authenticate,
         schema: {
+            description: 'Logout route to terminate user session',
             response: {
                 200: {
+                    description: 'Successful logout',
                     type: 'object',
                     properties: {
                         success: { type: 'boolean' }
