@@ -5,10 +5,10 @@ const Joi = require('joi');
 async function routes(fastify, options) {
     // Login route for admin/presidium
     fastify.route({
+        description: 'Description',
         method: 'POST',
         url: '/login',
         schema: {
-            description: 'Login route for administrators and presidium members',
             body: Joi.object({
                 username: Joi.string().required(),
                 password: Joi.string().required()

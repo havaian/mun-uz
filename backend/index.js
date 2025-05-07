@@ -1,10 +1,5 @@
 const fastify = require('fastify')({ 
-    logger: true,
-    schemaController: {
-        compilersFactory: {
-            buildValidator: () => () => true
-        }
-    }
+    logger: true
 });
 const path = require('path');
 require('dotenv').config();
@@ -66,9 +61,8 @@ fastify.register(require('@fastify/swagger'), {
     },
     exposeRoute: true,
     transform: ({ schema, url, method }) => {
-        // Ensure all routes have a description field
+        // Don't add descriptions automatically
         if (!schema) schema = {};
-        if (!schema.description) schema.description = `${method.toUpperCase()} ${url} endpoint`;
         
         // Add response types if not defined
         if (!schema.response) schema.response = {};
