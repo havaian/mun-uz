@@ -1,104 +1,47 @@
+const express = require('express');
+const router = express.Router();
 const AuthController = require('./controller');
-const Joi = require('joi');
+const { body, validationResult } = require('express-validator');
+const authenticate = require('../middleware/authenticate');
 
-// Define routes for auth module
-async function routes(fastify, options) {
-    // Login route for admin/presidium
-    fastify.route({
-        description: 'Description',
-        method: 'POST',
-        url: '/login',
-        schema: {
-            body: Joi.object({
-                username: Joi.string().required(),
-                password: Joi.string().required()
-            }).required(),
-            response: {
-                200: {
-                    description: 'Successful response',
-                    type: 'object',
-                    properties: {
-                        token: { type: 'string' },
-                        user: {
-                            type: 'object',
-                            properties: {
-                                id: { type: 'string' },
-                                username: { type: 'string' },
-                                role: { type: 'string' }
-                            }
-                        }
-                    }
-                },
-                401: {
-                    description: 'Unauthorized',
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: AuthController.login.bind(AuthController)
-    });
+// Login route for admin/presidium
+router.post('/login',
+    [
+        body('username').notEmpty().withMessage('Username is required'),
+        body('password').notEmpty().withMessage('Password is required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Login route for delegates (via token)
-    fastify.route({
-        method: 'POST',
-        url: '/delegate',
-        schema: {
-            description: 'Authentication route for delegates using QR code tokens',
-            body: Joi.object({
-                token: Joi.string().required()
-            }).required(),
-            response: {
-                200: {
-                    description: 'Successful response',
-                    type: 'object',
-                    properties: {
-                        token: { type: 'string' },
-                        user: {
-                            type: 'object',
-                            properties: {
-                                id: { type: 'string' },
-                                username: { type: 'string' },
-                                role: { type: 'string' },
-                                countryName: { type: 'string' },
-                                committeeId: { type: 'string' }
-                            }
-                        }
-                    }
-                },
-                401: {
-                    description: 'Unauthorized',
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: AuthController.delegateAuth.bind(AuthController)
-    });
+        await AuthController.login(req, res);
+    }
+);
 
-    // Logout route
-    fastify.route({
-        method: 'POST',
-        url: '/logout',
-        preHandler: fastify.authenticate,
-        schema: {
-            description: 'Logout route to terminate user session',
-            response: {
-                200: {
-                    description: 'Successful logout',
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' }
-                    }
-                }
-            }
-        },
-        handler: AuthController.logout.bind(AuthController)
-    });
-}
+router.get('/token/:username', authenticate, async (req, res) => {
+    await AuthController.generateAdminToken(req, res);
+});
 
-module.exports = routes;
+// Login route for delegates (via token)
+router.post('/delegate',
+    [
+        body('token').notEmpty().withMessage('Token is required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await AuthController.delegateAuth(req, res);
+    }
+);
+
+// Logout route
+router.post('/logout', authenticate, async (req, res) => {
+    await AuthController.logout(req, res);
+});
+
+module.exports = router;

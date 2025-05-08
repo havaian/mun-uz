@@ -1,47 +1,47 @@
 const EventsModel = require('./model');
 
 class EventsController {
-    async getAllEvents(request, reply) {
+    async getAllEvents(req, res) {
         try {
             // Get filter options from query parameters
             const filter = {};
-            if (request.query.status) {
-                filter.status = request.query.status;
+            if (req.query.status) {
+                filter.status = req.query.status;
             }
 
             const events = await EventsModel.getAllEvents(filter);
-            return events;
+            return res.json(events);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getEventById(request, reply) {
+    async getEventById(req, res) {
         try {
-            const { id } = request.params;
+            const { id } = req.params;
 
             const event = await EventsModel.getEventById(id);
 
             if (!event) {
-                return reply.code(404).send({ error: 'Event not found' });
+                return res.status(404).json({ error: 'Event not found' });
             }
 
-            return event;
+            return res.json(event);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async createEvent(request, reply) {
+    async createEvent(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const eventData = request.body;
+            const eventData = req.body;
 
             // Set initial status if not provided
             if (!eventData.status) {
@@ -50,27 +50,27 @@ class EventsController {
 
             const newEvent = await EventsModel.createEvent(eventData);
 
-            return reply.code(201).send(newEvent);
+            return res.status(201).json(newEvent);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async updateEvent(request, reply) {
+    async updateEvent(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const { id } = request.params;
-            const eventData = request.body;
+            const { id } = req.params;
+            const eventData = req.body;
 
             // Check if event exists
             const existingEvent = await EventsModel.getEventById(id);
             if (!existingEvent) {
-                return reply.code(404).send({ error: 'Event not found' });
+                return res.status(404).json({ error: 'Event not found' });
             }
 
             // Update the event
@@ -78,35 +78,35 @@ class EventsController {
 
             // Return the updated event
             const updatedEvent = await EventsModel.getEventById(id);
-            return updatedEvent;
+            return res.json(updatedEvent);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async deleteEvent(request, reply) {
+    async deleteEvent(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const { id } = request.params;
+            const { id } = req.params;
 
             // Check if event exists
             const existingEvent = await EventsModel.getEventById(id);
             if (!existingEvent) {
-                return reply.code(404).send({ error: 'Event not found' });
+                return res.status(404).json({ error: 'Event not found' });
             }
 
             // Delete the event
             await EventsModel.deleteEvent(id);
 
-            return { success: true };
+            return res.json({ success: true });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 }

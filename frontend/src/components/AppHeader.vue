@@ -47,9 +47,27 @@
                         </Menu>
                     </template>
                     <template v-else>
-                        <router-link to="/login" class="btn btn-primary">
-                            Login
-                        </router-link>
+                        <!-- Dynamic login buttons based on route -->
+                        <template v-if="$route.name === 'delegate-auth'">
+                            <router-link to="/login" class="btn btn-primary">
+                                Admin/Presidium Login
+                            </router-link>
+                        </template>
+                        <template v-else-if="$route.name === 'login'">
+                            <router-link to="/delegate/auth" class="btn btn-primary">
+                                Delegate Login
+                            </router-link>
+                        </template>
+                        <template v-else>
+                            <div class="space-x-4">
+                                <router-link to="/login" class="btn btn-primary">
+                                    Admin/Presidium Login
+                                </router-link>
+                                <router-link to="/delegate/auth" class="btn btn-outline">
+                                    Delegate Login
+                                </router-link>
+                            </div>
+                        </template>
                     </template>
                 </div>
             </div>

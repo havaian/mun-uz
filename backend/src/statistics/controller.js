@@ -1,66 +1,67 @@
 const StatisticsModel = require('./model');
 const CommitteesModel = require('../committees/model');
 const PDFDocument = require('pdfkit');
+const mongoose = require('mongoose');
 
 class StatisticsController {
-    async recordActivity(request, reply) {
+    async recordActivity(req, res) {
         try {
             // Only admin and presidium can record activities
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const activityData = request.body;
+            const activityData = req.body;
 
             // If presidium, check if they are assigned to this committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== activityData.committeeId) {
-                return reply.code(403).send({ error: 'Forbidden - you can only record activities for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== activityData.committeeId) {
+                return res.status(403).json({ error: 'Forbidden - you can only record activities for your assigned committee' });
             }
 
             // Record the activity
             const newActivity = await StatisticsModel.recordActivity(activityData);
 
-            return reply.code(201).send(newActivity);
+            return res.status(201).json(newActivity);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getCommitteeStatistics(request, reply) {
+    async getCommitteeStatistics(req, res) {
         try {
-            const { committeeId } = request.params;
+            const { committeeId } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(committeeId);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Get committee statistics
             const stats = await StatisticsModel.getCommitteeStatistics(committeeId);
 
-            return stats;
+            return res.json(stats);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getDelegateStatistics(request, reply) {
+    async getDelegateStatistics(req, res) {
         try {
-            const { committeeId, countryName } = request.params;
+            const { committeeId, countryName } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(committeeId);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Check if country exists in committee
             const countryExists = committee.countries.some(c => c.name === countryName);
             if (!countryExists) {
-                return reply.code(404).send({ error: 'Country not found in this committee' });
+                return res.status(404).json({ error: 'Country not found in this committee' });
             }
 
             // Get delegate statistics
@@ -73,7 +74,7 @@ class StatisticsController {
             const amendmentCount = stats.filter(a => a.activityType === 'amendment').length;
             const voteCount = stats.filter(a => a.activityType === 'vote').length;
 
-            return {
+            return res.json({
                 countryName,
                 summary: {
                     totalActivities: stats.length,
@@ -84,60 +85,51 @@ class StatisticsController {
                     votes: voteCount
                 },
                 recentActivities: stats.slice(0, 10) // Return most recent 10 activities
-            };
+            });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getCommitteeSummary(request, reply) {
+    async getCommitteeSummary(req, res) {
         try {
-            const { committeeId } = request.params;
+            const { committeeId } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(committeeId);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Get committee summary
             const summary = await StatisticsModel.getCommitteeSummary(committeeId);
 
-            // Add committee info
-            summary.committeeInfo = {
-                _id: committee._id,
-                name: committee.name,
-                type: committee.type,
-                status: committee.status,
-                countryCount: committee.countries.length
-            };
-
-            return summary;
+            return res.json(summary);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async exportCommitteeStatistics(request, reply) {
+    async exportCommitteeStatistics(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { committeeId } = request.params;
+            const { committeeId } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(committeeId);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // If presidium, check if they are assigned to this committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== committeeId) {
-                return reply.code(403).send({ error: 'Forbidden - you can only export statistics for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== committeeId) {
+                return res.status(403).json({ error: 'Forbidden - you can only export statistics for your assigned committee' });
             }
 
             // Get committee statistics
@@ -148,6 +140,13 @@ class StatisticsController {
 
             // Create PDF document
             const doc = new PDFDocument();
+
+            // Set response headers for PDF
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="committee_${committeeId}_statistics.pdf"`);
+
+            // Pipe PDF to response
+            doc.pipe(res);
 
             // Add content to PDF
             doc.fontSize(24).text(`Committee Statistics: ${committee.name}`, { align: 'center' });
@@ -193,27 +192,12 @@ class StatisticsController {
                 doc.fontSize(10).text(country.totalActivities.toString(), tableX + (6 * columnWidth), rowY, { width: columnWidth, align: 'center' });
             });
 
-            // Create buffer
-            return new Promise((resolve, reject) => {
-                const chunks = [];
-                doc.on('data', chunk => chunks.push(chunk));
-                doc.on('end', () => {
-                    const pdfBuffer = Buffer.concat(chunks);
+            // Finalize the PDF
+            doc.end();
 
-                    // Set response headers
-                    reply.header('Content-Type', 'application/pdf');
-                    reply.header('Content-Disposition', `attachment; filename="committee_${committeeId}_statistics.pdf"`);
-
-                    resolve(pdfBuffer);
-                });
-                doc.on('error', reject);
-
-                // Finalize the PDF
-                doc.end();
-            });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 }

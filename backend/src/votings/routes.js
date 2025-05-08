@@ -1,241 +1,81 @@
+const express = require('express');
+const router = express.Router();
 const VotingsController = require('./controller');
-const Joi = require('joi');
+const authenticate = require('../middleware/authenticate');
+const { body, param, validationResult } = require('express-validator');
 
-// Define routes for votings module
-async function routes(fastify, options) {
-    // Get voting by ID
-    fastify.route({
-        method: 'GET',
-        url: '/:id',
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        committeeId: { type: 'string' },
-                        sessionId: { type: 'string' },
-                        type: { type: 'string', enum: ['simple', 'roll-call'] },
-                        target: { type: 'string', enum: ['resolution', 'amendment', 'procedure'] },
-                        targetId: { type: 'string' },
-                        requiredMajority: { type: 'string', enum: ['simple', 'qualified'] },
-                        votes: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    countryName: { type: 'string' },
-                                    vote: { type: 'string', enum: ['yes', 'no', 'abstain'] },
-                                    timestamp: { type: 'string', format: 'date-time' }
-                                }
-                            }
-                        },
-                        result: { type: 'string', enum: ['accepted', 'rejected', null] },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
+// Get voting by ID
+router.get('/:id',
+    [
+        param('id').isMongoId().withMessage('Invalid voting ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await VotingsController.getVotingById(req, res);
+    }
+);
+
+// Create new voting
+router.post('/',
+    authenticate,
+    [
+        body('committeeId').isMongoId().withMessage('Invalid committee ID'),
+        body('type').isIn(['simple', 'roll-call']).withMessage('Type must be simple or roll-call'),
+        body('target').isIn(['resolution', 'amendment', 'procedure']).withMessage('Target must be resolution, amendment, or procedure'),
+        body('targetId').optional().isMongoId().withMessage('Invalid target ID')
+            .custom((value, { req }) => {
+                if (['resolution', 'amendment'].includes(req.body.target) && !value) {
+                    throw new Error('Target ID is required for resolution or amendment targets');
                 }
-            }
-        },
-        handler: VotingsController.getVotingById.bind(VotingsController)
-    });
+                return true;
+            }),
+        body('requiredMajority').isIn(['simple', 'qualified']).withMessage('Required majority must be simple or qualified')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Create new voting
-    fastify.route({
-        method: 'POST',
-        url: '/',
-        preHandler: fastify.authenticate,
-        schema: {
-            body: Joi.object({
-                committeeId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required(),
-                type: Joi.string().valid('simple', 'roll-call').required(),
-                target: Joi.string().valid('resolution', 'amendment', 'procedure').required(),
-                targetId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).when('target', {
-                    is: Joi.valid('resolution', 'amendment'),
-                    then: Joi.required(),
-                    otherwise: Joi.optional()
-                }),
-                requiredMajority: Joi.string().valid('simple', 'qualified').required()
-            }).required(),
-            response: {
-                201: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        committeeId: { type: 'string' },
-                        sessionId: { type: 'string' },
-                        type: { type: 'string', enum: ['simple', 'roll-call'] },
-                        target: { type: 'string', enum: ['resolution', 'amendment', 'procedure'] },
-                        targetId: { type: 'string' },
-                        requiredMajority: { type: 'string', enum: ['simple', 'qualified'] },
-                        votes: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    countryName: { type: 'string' },
-                                    vote: { type: 'string', enum: ['yes', 'no', 'abstain'] },
-                                    timestamp: { type: 'string', format: 'date-time' }
-                                }
-                            }
-                        },
-                        result: { type: 'string', enum: ['accepted', 'rejected', null] },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' }
-                    }
-                },
-                400: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                },
-                409: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' },
-                        activeVotingId: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: VotingsController.createVoting.bind(VotingsController)
-    });
+        await VotingsController.createVoting(req, res);
+    }
+);
 
-    // Submit vote
-    fastify.route({
-        method: 'POST',
-        url: '/:id/vote',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            body: Joi.object({
-                vote: Joi.string().valid('yes', 'no', 'abstain').required()
-            }).required(),
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        committeeId: { type: 'string' },
-                        sessionId: { type: 'string' },
-                        type: { type: 'string', enum: ['simple', 'roll-call'] },
-                        target: { type: 'string', enum: ['resolution', 'amendment', 'procedure'] },
-                        targetId: { type: 'string' },
-                        requiredMajority: { type: 'string', enum: ['simple', 'qualified'] },
-                        votes: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    countryName: { type: 'string' },
-                                    vote: { type: 'string', enum: ['yes', 'no', 'abstain'] },
-                                    timestamp: { type: 'string', format: 'date-time' }
-                                }
-                            }
-                        },
-                        result: { type: 'string', enum: ['accepted', 'rejected', null] },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' },
-                        message: { type: 'string' }
-                    }
-                },
-                400: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: VotingsController.submitVote.bind(VotingsController)
-    });
+// Submit vote
+router.post('/:id/vote',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid voting ID'),
+        body('vote').isIn(['yes', 'no', 'abstain']).withMessage('Vote must be yes, no, or abstain')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Finalize voting
-    fastify.route({
-        method: 'PUT',
-        url: '/:id/finalize',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        committeeId: { type: 'string' },
-                        sessionId: { type: 'string' },
-                        type: { type: 'string', enum: ['simple', 'roll-call'] },
-                        target: { type: 'string', enum: ['resolution', 'amendment', 'procedure'] },
-                        targetId: { type: 'string' },
-                        requiredMajority: { type: 'string', enum: ['simple', 'qualified'] },
-                        votes: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    countryName: { type: 'string' },
-                                    vote: { type: 'string', enum: ['yes', 'no', 'abstain'] },
-                                    timestamp: { type: 'string', format: 'date-time' }
-                                }
-                            }
-                        },
-                        result: { type: 'string', enum: ['accepted', 'rejected'] },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' },
-                        stats: {
-                            type: 'object',
-                            properties: {
-                                totalVotes: { type: 'number' },
-                                yesVotes: { type: 'number' },
-                                noVotes: { type: 'number' },
-                                abstainVotes: { type: 'number' },
-                                result: { type: 'string', enum: ['accepted', 'rejected'] }
-                            }
-                        }
-                    }
-                },
-                400: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: VotingsController.finalizeVoting.bind(VotingsController)
-    });
-}
+        await VotingsController.submitVote(req, res);
+    }
+);
 
-module.exports = routes;
+// Finalize voting
+router.put('/:id/finalize',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid voting ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await VotingsController.finalizeVoting(req, res);
+    }
+);
+
+module.exports = router;

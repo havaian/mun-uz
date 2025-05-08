@@ -1,117 +1,62 @@
-const fastify = require('fastify')({ 
-    logger: true
-});
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
 const path = require('path');
+const http = require('http');
 require('dotenv').config();
 const { connectToDatabase } = require('./db');
 const websocketService = require('./src/websocket/service');
 
+// Create Express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Create HTTP server
+const server = http.createServer(app);
+
 // Connect to MongoDB
 connectToDatabase();
 
-// Register plugins
-fastify.register(require('@fastify/cors'), {
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors({
     origin: '*', // In production, set to your frontend domain
     methods: ['GET', 'POST', 'PUT', 'DELETE']
-});
+}));
 
-fastify.register(require('@fastify/jwt'), {
-    secret: process.env.JWT_SECRET
-});
+// Serve static files
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
-fastify.register(require('@fastify/static'), {
-    root: path.join(__dirname, 'public'),
-    prefix: '/public/'
-});
-
-fastify.register(require('@fastify/websocket'), {
-    options: {
-        maxPayload: 1048576, // 1MB
-        clientTracking: true
-    }
-});
-
-// Register WebSocket routes
-fastify.register(websocketService.websocketRoute);
-
-// Register Swagger
-fastify.register(require('@fastify/swagger'), {
-    routePrefix: '/documentation',
-    swagger: {
-        info: {
-            title: 'MUN.UZ API',
-            description: 'API for Model UN platform',
-            version: '1.0.0'
-        },
-        externalDocs: {
-            url: 'https://mun.uz',
-            description: 'Find more info here'
-        },
-        host: 'mun.uz',
-        schemes: ['http', 'https'],
-        consumes: ['application/json'],
-        produces: ['application/json'],
-        securityDefinitions: {
-            apiKey: {
-                type: 'apiKey',
-                name: 'Authorization',
-                in: 'header'
-            }
-        }
-    },
-    exposeRoute: true,
-    transform: ({ schema, url, method }) => {
-        // Don't add descriptions automatically
-        if (!schema) schema = {};
-        
-        // Add response types if not defined
-        if (!schema.response) schema.response = {};
-        
-        return { schema, url, method };
-    }
-});
-
-// Authentication hook
-fastify.decorate('authenticate', async (request, reply) => {
-    try {
-        await request.jwtVerify();
-    } catch (err) {
-        reply.code(401).send({ error: 'Unauthorized' });
-    }
-});
-
-// Make WebSocket service available in routes
-fastify.decorate('websocket', websocketService);
+// Setup WebSocket with Socket.IO
+const io = websocketService.setupSocketIO(server);
 
 // Register routes
-fastify.register(require('./src/auth/routes'), { prefix: '/api/auth' });
-fastify.register(require('./src/events/routes'), { prefix: '/api/events' });
-fastify.register(require('./src/committees/routes'), { prefix: '/api/committees' });
-fastify.register(require('./src/sessions/routes'), { prefix: '/api/sessions' });
-fastify.register(require('./src/resolutions/routes'), { prefix: '/api/resolutions' });
-fastify.register(require('./src/amendments/routes'), { prefix: '/api/amendments' });
-fastify.register(require('./src/votings/routes'), { prefix: '/api/votings' });
-fastify.register(require('./src/statistics/routes'), { prefix: '/api/statistics' });
-fastify.register(require('./src/countries/routes'), { prefix: '/api/countries' });
+app.use('/api/auth', require('./src/auth/routes'));
+app.use('/api/events', require('./src/events/routes'));
+app.use('/api/committees', require('./src/committees/routes'));
+app.use('/api/sessions', require('./src/sessions/routes'));
+app.use('/api/resolutions', require('./src/resolutions/routes'));
+app.use('/api/amendments', require('./src/amendments/routes'));
+app.use('/api/votings', require('./src/votings/routes'));
+app.use('/api/statistics', require('./src/statistics/routes'));
+app.use('/api/countries', require('./src/countries/routes'));
 
 // Health check route
-fastify.get('/health', async () => {
-    return { status: 'ok', timestamp: new Date() };
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // Start the server
-const start = async () => {
-    try {
-        await fastify.listen({
-            port: process.env.PORT || 3000,
-            host: '0.0.0.0'
-        });
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+});
 
-        console.log(`Server is running on ${fastify.server.address().port}`);
-    } catch (err) {
-        fastify.log.error(err);
-        process.exit(1);
-    }
-};
-
-start();
+// Export for testing purposes
+module.exports = { app, server };

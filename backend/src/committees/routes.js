@@ -1,400 +1,166 @@
+const express = require('express');
+const router = express.Router();
 const CommitteesController = require('./controller');
-const Joi = require('joi');
+const authenticate = require('../middleware/authenticate');
+const { body, param, validationResult } = require('express-validator');
 
-// Define routes for committees module
-async function routes(fastify, options) {
-    // Get all committees
-    fastify.route({
-        method: 'GET',
-        url: '/',
-        schema: {
-            response: {
-                200: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            _id: { type: 'string' },
-                            eventId: { type: 'string' },
-                            name: { type: 'string' },
-                            type: { type: 'string' },
-                            status: { type: 'string' },
-                            minResolutionAuthors: { type: 'number' },
-                            countries: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        name: { type: 'string' },
-                                        isPermanentMember: { type: 'boolean' },
-                                        hasVetoRight: { type: 'boolean' },
-                                        token: { type: 'string' }
-                                    }
-                                }
-                            },
-                            createdAt: { type: 'string', format: 'date-time' },
-                            updatedAt: { type: 'string', format: 'date-time' }
-                        }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.getAllCommittees.bind(CommitteesController)
-    });
+// Get all committees
+router.get('/', async (req, res) => {
+    await CommitteesController.getAllCommittees(req, res);
+});
 
-    // Get committees for event
-    fastify.route({
-        method: 'GET',
-        url: '/event/:eventId',
-        schema: {
-            params: {
-                eventId: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            _id: { type: 'string' },
-                            eventId: { type: 'string' },
-                            name: { type: 'string' },
-                            type: { type: 'string' },
-                            status: { type: 'string' },
-                            minResolutionAuthors: { type: 'number' },
-                            countries: {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        name: { type: 'string' },
-                                        isPermanentMember: { type: 'boolean' },
-                                        hasVetoRight: { type: 'boolean' },
-                                        token: { type: 'string' }
-                                    }
-                                }
-                            },
-                            createdAt: { type: 'string', format: 'date-time' },
-                            updatedAt: { type: 'string', format: 'date-time' }
-                        }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.getCommitteesForEvent.bind(CommitteesController)
-    });
+// Get committees for event
+router.get('/event/:eventId',
+    [
+        param('eventId').isMongoId().withMessage('Invalid event ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Get committee by ID
-    fastify.route({
-        method: 'GET',
-        url: '/:id',
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        eventId: { type: 'string' },
-                        name: { type: 'string' },
-                        type: { type: 'string' },
-                        status: { type: 'string' },
-                        minResolutionAuthors: { type: 'number' },
-                        countries: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    name: { type: 'string' },
-                                    isPermanentMember: { type: 'boolean' },
-                                    hasVetoRight: { type: 'boolean' },
-                                    token: { type: 'string' }
-                                }
-                            }
-                        },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.getCommitteeById.bind(CommitteesController)
-    });
+        await CommitteesController.getCommitteesForEvent(req, res);
+    }
+);
 
-    // Create new committee
-    fastify.route({
-        method: 'POST',
-        url: '/',
-        preHandler: fastify.authenticate,
-        schema: {
-            body: Joi.object({
-                eventId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required(),
-                name: Joi.string().required(),
-                type: Joi.string().valid('GA', 'SC', 'other').required(),
-                status: Joi.string().valid('setup', 'active', 'completed').default('setup'),
-                minResolutionAuthors: Joi.number().integer().min(1).default(3),
-                countries: Joi.array().items(
-                    Joi.object({
-                        name: Joi.string().required(),
-                        isPermanentMember: Joi.boolean().default(false),
-                        hasVetoRight: Joi.boolean().default(false)
-                    })
-                ).default([])
-            }).required(),
-            response: {
-                201: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        eventId: { type: 'string' },
-                        name: { type: 'string' },
-                        type: { type: 'string' },
-                        status: { type: 'string' },
-                        minResolutionAuthors: { type: 'number' },
-                        countries: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    name: { type: 'string' },
-                                    isPermanentMember: { type: 'boolean' },
-                                    hasVetoRight: { type: 'boolean' },
-                                    token: { type: 'string' }
-                                }
-                            }
-                        },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.createCommittee.bind(CommitteesController)
-    });
+// Get committee by ID
+router.get('/:id',
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Update committee
-    fastify.route({
-        method: 'PUT',
-        url: '/:id',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            body: Joi.object({
-                name: Joi.string(),
-                type: Joi.string().valid('GA', 'SC', 'other'),
-                status: Joi.string().valid('setup', 'active', 'completed'),
-                minResolutionAuthors: Joi.number().integer().min(1),
-                countries: Joi.array().items(
-                    Joi.object({
-                        name: Joi.string().required(),
-                        isPermanentMember: Joi.boolean().default(false),
-                        hasVetoRight: Joi.boolean().default(false),
-                        token: Joi.string()
-                    })
-                )
-            }).required(),
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        eventId: { type: 'string' },
-                        name: { type: 'string' },
-                        type: { type: 'string' },
-                        status: { type: 'string' },
-                        minResolutionAuthors: { type: 'number' },
-                        countries: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    name: { type: 'string' },
-                                    isPermanentMember: { type: 'boolean' },
-                                    hasVetoRight: { type: 'boolean' },
-                                    token: { type: 'string' }
-                                }
-                            }
-                        },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.updateCommittee.bind(CommitteesController)
-    });
+        await CommitteesController.getCommitteeById(req, res);
+    }
+);
 
-    // Delete committee
-    fastify.route({
-        method: 'DELETE',
-        url: '/:id',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.deleteCommittee.bind(CommitteesController)
-    });
+// Create new committee
+router.post('/',
+    authenticate,
+    [
+        body('eventId').isMongoId().withMessage('Invalid event ID'),
+        body('name').notEmpty().withMessage('Name is required'),
+        body('type').isIn(['GA', 'SC', 'other']).withMessage('Type must be GA, SC, or other'),
+        body('status').optional().isIn(['setup', 'active', 'completed']),
+        body('minResolutionAuthors').optional().isInt({ min: 1 }),
+        body('countries').optional().isArray()
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Get committee status
-    fastify.route({
-        method: 'GET',
-        url: '/:id/status',
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        _id: { type: 'string' },
-                        name: { type: 'string' },
-                        type: { type: 'string' },
-                        status: { type: 'string' },
-                        countryCount: { type: 'number' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.getCommitteeStatus.bind(CommitteesController)
-    });
+        await CommitteesController.createCommittee(req, res);
+    }
+);
 
-    // Generate QR codes for committee
-    fastify.route({
-        method: 'GET',
-        url: '/:id/qrcodes',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            response: {
-                200: {
-                    type: 'string',
-                    format: 'binary'
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.generateQRCodes.bind(CommitteesController)
-    });
+// Update committee
+router.put('/:id',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID'),
+        body('name').optional().notEmpty().withMessage('Name cannot be empty'),
+        body('type').optional().isIn(['GA', 'SC', 'other']).withMessage('Type must be GA, SC, or other'),
+        body('status').optional().isIn(['setup', 'active', 'completed']),
+        body('minResolutionAuthors').optional().isInt({ min: 1 }),
+        body('countries').optional().isArray()
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Assign presidium to committee
-    fastify.route({
-        method: 'POST',
-        url: '/:id/presidium',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' }
-            },
-            body: Joi.object({
-                username: Joi.string().required(),
-                password: Joi.string().required()
-            }).required(),
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        user: {
-                            type: 'object',
-                            properties: {
-                                _id: { type: 'string' },
-                                username: { type: 'string' },
-                                role: { type: 'string' },
-                                committeeId: { type: 'string' }
-                            }
-                        }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                },
-                409: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.assignPresidium.bind(CommitteesController)
-    });
+        await CommitteesController.updateCommittee(req, res);
+    }
+);
 
-    // Remove presidium from committee
-    fastify.route({
-        method: 'DELETE',
-        url: '/:id/presidium/:username',
-        preHandler: fastify.authenticate,
-        schema: {
-            params: {
-                id: { type: 'string', pattern: '^[0-9a-fA-F]{24}$' },
-                username: { type: 'string' }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CommitteesController.removePresidium.bind(CommitteesController)
-    });
-}
+// Delete committee
+router.delete('/:id',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-module.exports = routes;
+        await CommitteesController.deleteCommittee(req, res);
+    }
+);
+
+// Get committee status
+router.get('/:id/status',
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await CommitteesController.getCommitteeStatus(req, res);
+    }
+);
+
+// Generate QR codes for committee
+router.get('/:id/qrcodes',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await CommitteesController.generateQRCodes(req, res);
+    }
+);
+
+// Assign presidium to committee
+router.post('/:id/presidium',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID'),
+        body('username').notEmpty().withMessage('Username is required'),
+        body('password').notEmpty().withMessage('Password is required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await CommitteesController.assignPresidium(req, res);
+    }
+);
+
+// Remove presidium from committee
+router.delete('/:id/presidium/:username',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID'),
+        param('username').notEmpty().withMessage('Username is required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await CommitteesController.removePresidium(req, res);
+    }
+);
+
+module.exports = router;

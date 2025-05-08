@@ -2,60 +2,60 @@ const SessionsModel = require('./model');
 const CommitteesModel = require('../committees/model');
 
 class SessionsController {
-    async getSessionsForCommittee(request, reply) {
+    async getSessionsForCommittee(req, res) {
         try {
-            const { committeeId } = request.params;
+            const { committeeId } = req.params;
 
             const sessions = await SessionsModel.getSessionsForCommittee(committeeId);
 
-            return sessions;
+            return res.json(sessions);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getSessionById(request, reply) {
+    async getSessionById(req, res) {
         try {
-            const { id } = request.params;
+            const { id } = req.params;
 
             const session = await SessionsModel.getSessionById(id);
 
             if (!session) {
-                return reply.code(404).send({ error: 'Session not found' });
+                return res.status(404).json({ error: 'Session not found' });
             }
 
-            return session;
+            return res.json(session);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async createSession(request, reply) {
+    async createSession(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { committeeId } = request.params;
+            const { committeeId } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(committeeId);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // If presidium, check if they are assigned to this committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== committeeId) {
-                return reply.code(403).send({ error: 'Forbidden - you can only manage your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== committeeId) {
+                return res.status(403).json({ error: 'Forbidden - you can only manage your assigned committee' });
             }
 
             // Check if there is already an active session
             const activeSession = await SessionsModel.getActiveSessionForCommittee(committeeId);
             if (activeSession) {
-                return reply.code(409).send({ error: 'Committee already has an active session', activeSessionId: activeSession._id });
+                return res.status(409).json({ error: 'Committee already has an active session', activeSessionId: activeSession._id });
             }
 
             // Determine session number
@@ -67,42 +67,42 @@ class SessionsController {
                 committeeId,
                 number: sessionNumber,
                 mode: 'formal', // Default mode is formal
-                ...request.body
+                ...req.body
             };
 
             const newSession = await SessionsModel.createSession(sessionData);
 
-            return reply.code(201).send(newSession);
+            return res.status(201).json(newSession);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async updateSessionMode(request, reply) {
+    async updateSessionMode(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
-            const { mode } = request.body;
+            const { id } = req.params;
+            const { mode } = req.body;
 
             // Check if session exists
             const session = await SessionsModel.getSessionById(id);
             if (!session) {
-                return reply.code(404).send({ error: 'Session not found' });
+                return res.status(404).json({ error: 'Session not found' });
             }
 
             // If presidium, check if they are assigned to this session's committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== session.committeeId.toString()) {
-                return reply.code(403).send({ error: 'Forbidden - you can only manage sessions for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== session.committeeId.toString()) {
+                return res.status(403).json({ error: 'Forbidden - you can only manage sessions for your assigned committee' });
             }
 
             // Check if session is active
             if (session.status !== 'active') {
-                return reply.code(400).send({ error: 'Session is not active' });
+                return res.status(400).json({ error: 'Session is not active' });
             }
 
             // Update session mode
@@ -110,37 +110,37 @@ class SessionsController {
 
             // Return the updated session
             const updatedSession = await SessionsModel.getSessionById(id);
-            return updatedSession;
+            return res.json(updatedSession);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async updateRollCall(request, reply) {
+    async updateRollCall(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
-            const { presentCountries } = request.body;
+            const { id } = req.params;
+            const { presentCountries } = req.body;
 
             // Check if session exists
             const session = await SessionsModel.getSessionById(id);
             if (!session) {
-                return reply.code(404).send({ error: 'Session not found' });
+                return res.status(404).json({ error: 'Session not found' });
             }
 
             // If presidium, check if they are assigned to this session's committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== session.committeeId.toString()) {
-                return reply.code(403).send({ error: 'Forbidden - you can only manage sessions for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== session.committeeId.toString()) {
+                return res.status(403).json({ error: 'Forbidden - you can only manage sessions for your assigned committee' });
             }
 
             // Check if session is active
             if (session.status !== 'active') {
-                return reply.code(400).send({ error: 'Session is not active' });
+                return res.status(400).json({ error: 'Session is not active' });
             }
 
             // Update roll call
@@ -148,45 +148,45 @@ class SessionsController {
 
             // Return the updated session
             const updatedSession = await SessionsModel.getSessionById(id);
-            return updatedSession;
+            return res.json(updatedSession);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async completeSession(request, reply) {
+    async completeSession(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
+            const { id } = req.params;
 
             // Check if session exists
             const session = await SessionsModel.getSessionById(id);
             if (!session) {
-                return reply.code(404).send({ error: 'Session not found' });
+                return res.status(404).json({ error: 'Session not found' });
             }
 
             // If presidium, check if they are assigned to this session's committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== session.committeeId.toString()) {
-                return reply.code(403).send({ error: 'Forbidden - you can only manage sessions for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== session.committeeId.toString()) {
+                return res.status(403).json({ error: 'Forbidden - you can only manage sessions for your assigned committee' });
             }
 
             // Check if session is active
             if (session.status !== 'active') {
-                return reply.code(400).send({ error: 'Session is already completed' });
+                return res.status(400).json({ error: 'Session is already completed' });
             }
 
             // Complete session
             await SessionsModel.completeSession(id);
 
-            return { success: true };
+            return res.json({ success: true });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 }

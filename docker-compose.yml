@@ -9,9 +9,6 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
-    volumes:
-      - "./backend:/app"
-      - "./backend/src:/app/src"
     depends_on:
       - mongo
     environment:
@@ -19,6 +16,9 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/mun-uz
       - PORT=3000
       - JWT_SECRET=development_secret_replace_this_in_production
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
     networks:
       - mun-network
 

@@ -1,78 +1,36 @@
+const express = require('express');
+const router = express.Router();
 const CountriesController = require('./controller');
+const { param, query, validationResult } = require('express-validator');
 
-// Define routes for countries module
-async function routes(fastify, options) {
-    // Get all countries
-    fastify.route({
-        method: 'GET',
-        url: '/',
-        schema: {
-            response: {
-                200: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            name: { type: 'string' },
-                            code: { type: 'string' }
-                        }
-                    }
-                }
-            }
-        },
-        handler: CountriesController.getAllCountries.bind(CountriesController)
-    });
+// Get all countries
+router.get('/', async (req, res) => {
+    await CountriesController.getAllCountries(req, res);
+});
 
-    // Get country by ISO code
-    fastify.route({
-        method: 'GET',
-        url: '/:code',
-        schema: {
-            params: {
-                code: { type: 'string', minLength: 2, maxLength: 2 }
-            },
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        name: { type: 'string' },
-                        code: { type: 'string' }
-                    }
-                },
-                404: {
-                    type: 'object',
-                    properties: {
-                        error: { type: 'string' }
-                    }
-                }
-            }
-        },
-        handler: CountriesController.getCountryByCode.bind(CountriesController)
-    });
+// Get country by ISO code
+router.get('/:code',
+    [
+        param('code').isLength({ min: 2, max: 2 }).withMessage('Country code must be 2 characters')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    // Search countries by name
-    fastify.route({
-        method: 'GET',
-        url: '/search',
-        schema: {
-            querystring: {
-                query: { type: 'string' }
-            },
-            response: {
-                200: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            name: { type: 'string' },
-                            code: { type: 'string' }
-                        }
-                    }
-                }
-            }
-        },
-        handler: CountriesController.searchCountries.bind(CountriesController)
-    });
-}
+        await CountriesController.getCountryByCode(req, res);
+    }
+);
 
-module.exports = routes;
+// Search countries by name
+router.get('/search',
+    [
+        query('query').optional()
+    ],
+    async (req, res) => {
+        await CountriesController.searchCountries(req, res);
+    }
+);
+
+module.exports = router;

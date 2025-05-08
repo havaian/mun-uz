@@ -110,73 +110,78 @@ class StatisticsModel {
     }
 
     async getCommitteeSummary(committeeId) {
-        const [
-            activityStats,
-            countryStats,
-            sessionCount,
-            activeSessionsCount,
-            resolutionCount,
-            acceptedResolutionsCount,
-            workingDraftsCount,
-            amendmentCount,
-            acceptedAmendmentsCount,
-            votingCount,
-            acceptedVotingsCount,
-            rejectedVotingsCount
-        ] = await Promise.all([
-            this.getActivityBreakdown(committeeId),
-            this.getCommitteeStatistics(committeeId),
-            mongoose.model('Session').countDocuments({ committeeId }),
-            mongoose.model('Session').countDocuments({ committeeId, status: 'active' }),
-            mongoose.model('Resolution').countDocuments({ committeeId }),
-            mongoose.model('Resolution').countDocuments({ committeeId, status: 'accepted' }),
-            mongoose.model('Resolution').countDocuments({ committeeId, isWorkingDraft: true }),
-            mongoose.model('Amendment').countDocuments({ committeeId }),
-            mongoose.model('Amendment').countDocuments({ committeeId, status: 'accepted' }),
-            mongoose.model('Voting').countDocuments({ committeeId }),
-            mongoose.model('Voting').countDocuments({ committeeId, result: 'accepted' }),
-            mongoose.model('Voting').countDocuments({ committeeId, result: 'rejected' })
-        ]);
+        try {
+            const [
+                activityStats,
+                countryStats,
+                sessionCount,
+                activeSessionsCount,
+                resolutionCount,
+                acceptedResolutionsCount,
+                workingDraftsCount,
+                amendmentCount,
+                acceptedAmendmentsCount,
+                votingCount,
+                acceptedVotingsCount,
+                rejectedVotingsCount
+            ] = await Promise.all([
+                this.getActivityBreakdown(committeeId),
+                this.getCommitteeStatistics(committeeId),
+                mongoose.model('Session').countDocuments({ committeeId }),
+                mongoose.model('Session').countDocuments({ committeeId, status: 'active' }),
+                mongoose.model('Resolution').countDocuments({ committeeId }),
+                mongoose.model('Resolution').countDocuments({ committeeId, status: 'accepted' }),
+                mongoose.model('Resolution').countDocuments({ committeeId, isWorkingDraft: true }),
+                mongoose.model('Amendment').countDocuments({ committeeId }),
+                mongoose.model('Amendment').countDocuments({ committeeId, status: 'accepted' }),
+                mongoose.model('Voting').countDocuments({ committeeId }),
+                mongoose.model('Voting').countDocuments({ committeeId, result: 'accepted' }),
+                mongoose.model('Voting').countDocuments({ committeeId, result: 'rejected' })
+            ]);
 
-        // Get committee info
-        const committee = await mongoose.model('Committee').findById(committeeId);
+            // Get committee info
+            const committee = await mongoose.model('Committee').findById(committeeId);
 
-        // Compile summary
-        return {
-            committeeInfo: committee ? {
-                _id: committee._id,
-                name: committee.name,
-                type: committee.type,
-                status: committee.status,
-                countryCount: committee.countries ? committee.countries.length : 0
-            } : null,
-            activitySummary: {
-                totalActivities: activityStats.reduce((acc, curr) => acc + curr.count, 0),
-                activityBreakdown: activityStats
-            },
-            countrySummary: {
-                totalCountries: countryStats.length,
-                mostActive: countryStats.length > 0 ? countryStats[0] : null,
-                countryBreakdown: countryStats
-            },
-            sessionSummary: {
-                totalSessions: sessionCount,
-                completedSessions: sessionCount - activeSessionsCount,
-                activeSessions: activeSessionsCount
-            },
-            documentSummary: {
-                totalResolutions: resolutionCount,
-                acceptedResolutions: acceptedResolutionsCount,
-                workingDrafts: workingDraftsCount,
-                totalAmendments: amendmentCount,
-                acceptedAmendments: acceptedAmendmentsCount
-            },
-            votingSummary: {
-                totalVotings: votingCount,
-                acceptedItems: acceptedVotingsCount,
-                rejectedItems: rejectedVotingsCount
-            }
-        };
+            // Compile summary
+            return {
+                committeeInfo: committee ? {
+                    _id: committee._id,
+                    name: committee.name,
+                    type: committee.type,
+                    status: committee.status,
+                    countryCount: committee.countries ? committee.countries.length : 0
+                } : null,
+                activitySummary: {
+                    totalActivities: activityStats.reduce((acc, curr) => acc + curr.count, 0),
+                    activityBreakdown: activityStats
+                },
+                countrySummary: {
+                    totalCountries: countryStats.length,
+                    mostActive: countryStats.length > 0 ? countryStats[0] : null,
+                    countryBreakdown: countryStats
+                },
+                sessionSummary: {
+                    totalSessions: sessionCount,
+                    completedSessions: sessionCount - activeSessionsCount,
+                    activeSessions: activeSessionsCount
+                },
+                documentSummary: {
+                    totalResolutions: resolutionCount,
+                    acceptedResolutions: acceptedResolutionsCount,
+                    workingDrafts: workingDraftsCount,
+                    totalAmendments: amendmentCount,
+                    acceptedAmendments: acceptedAmendmentsCount
+                },
+                votingSummary: {
+                    totalVotings: votingCount,
+                    acceptedItems: acceptedVotingsCount,
+                    rejectedItems: rejectedVotingsCount
+                }
+            };
+        } catch (error) {
+            console.error('Error in getCommitteeSummary:', error);
+            throw error;
+        }
     }
 }
 

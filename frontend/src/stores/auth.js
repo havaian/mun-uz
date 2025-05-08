@@ -36,7 +36,13 @@ export const useAuthStore = defineStore('auth', () => {
     async function delegateAuth(token) {
         try {
             const response = await authService.delegateAuth(token)
-            setAuthData(response.data)
+
+            // Set auth data
+            this.token = response.data.token
+            this.user = response.data.user
+            localStorage.setItem('token', response.data.token)
+            localStorage.setItem('user', JSON.stringify(response.data.user))
+
             return response.data
         } catch (error) {
             toast.error(error.response?.data?.error || 'Authentication failed')

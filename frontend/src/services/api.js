@@ -50,7 +50,8 @@ api.interceptors.response.use(
 export const authService = {
     login: credentials => api.post('/auth/login', credentials),
     delegateAuth: token => api.post('/auth/delegate', { token }),
-    logout: () => api.post('/auth/logout')
+    logout: () => api.post('/auth/logout'),
+    generateToken: username => api.get(`/auth/token/${username}`),
 }
 
 // Events services

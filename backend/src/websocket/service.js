@@ -1,97 +1,88 @@
 const jwt = require('jsonwebtoken');
+const socketIo = require('socket.io');
 require('dotenv').config();
 
 // Store WebSocket connections by committee
 const committeeConnections = new Map();
 
-// Set up WebSocket route
-async function websocketRoute(fastify) {
-    fastify.register(async function (fastify) {
-        fastify.get('/ws/committees/:committeeId', { websocket: true }, (connection, req) => {
-            const { committeeId } = req.params;
+// Setup Socket.IO
+function setupSocketIO(server) {
+    const io = socketIo(server, {
+        cors: {
+            origin: '*', // In production, set to your frontend domain
+            methods: ['GET', 'POST']
+        }
+    });
 
-            // Authenticate the connection
-            let user;
-            try {
-                // Get token from query parameter
-                const token = req.query.token;
-                if (!token) {
-                    connection.socket.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
-                    connection.socket.close();
-                    return;
-                }
+    // Middleware for authentication
+    io.use((socket, next) => {
+        try {
+            const token = socket.handshake.query.token;
+            if (!token) {
+                return next(new Error('Authentication required'));
+            }
 
-                // Verify token
-                user = jwt.verify(token, process.env.JWT_SECRET);
+            // Verify token
+            const user = jwt.verify(token, process.env.JWT_SECRET);
+            socket.user = user;
+            next();
+        } catch (error) {
+            next(new Error('Authentication failed'));
+        }
+    });
 
-                // If user is presidium, check if they're assigned to this committee
-                if (user.role === 'presidium' && user.committeeId !== committeeId) {
-                    connection.socket.send(JSON.stringify({ type: 'error', message: 'Not authorized for this committee' }));
-                    connection.socket.close();
-                    return;
-                }
+    // Handle connections
+    io.on('connection', (socket) => {
+        const { committeeId } = socket.handshake.query;
 
-                // Add connection to the committee's connections list
-                if (!committeeConnections.has(committeeId)) {
-                    committeeConnections.set(committeeId, new Map());
-                }
+        // If user is presidium, check if they're assigned to this committee
+        if (socket.user.role === 'presidium' && socket.user.committeeId !== committeeId) {
+            socket.emit('error', { message: 'Not authorized for this committee' });
+            socket.disconnect();
+            return;
+        }
 
-                const committeeClients = committeeConnections.get(committeeId);
-                committeeClients.set(connection.socket, {
-                    user,
-                    connection
-                });
+        // Add connection to the committee's connections list
+        if (!committeeConnections.has(committeeId)) {
+            committeeConnections.set(committeeId, new Map());
+        }
 
-                // Send connection confirmation
-                connection.socket.send(JSON.stringify({
-                    type: 'connected',
-                    message: 'Connected to committee WebSocket',
-                    user: {
-                        username: user.username,
-                        role: user.role,
-                        countryName: user.countryName
-                    }
-                }));
+        const committeeClients = committeeConnections.get(committeeId);
+        committeeClients.set(socket.id, {
+            user: socket.user,
+            socket
+        });
 
-                // Handle disconnect
-                connection.socket.on('close', () => {
-                    const committeeClients = committeeConnections.get(committeeId);
-                    if (committeeClients) {
-                        committeeClients.delete(connection.socket);
-
-                        // If no more connections, remove the committee
-                        if (committeeClients.size === 0) {
-                            committeeConnections.delete(committeeId);
-                        }
-                    }
-                });
-
-                // Handle messages
-                connection.socket.on('message', (message) => {
-                    try {
-                        const data = JSON.parse(message.toString());
-
-                        // Handle different message types
-                        switch (data.type) {
-                            case 'ping':
-                                connection.socket.send(JSON.stringify({ type: 'pong' }));
-                                break;
-
-                            default:
-                                // Ignore other message types
-                                break;
-                        }
-                    } catch (error) {
-                        fastify.log.error('WebSocket message error:', error);
-                    }
-                });
-            } catch (error) {
-                fastify.log.error('WebSocket authentication error:', error);
-                connection.socket.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
-                connection.socket.close();
+        // Send connection confirmation
+        socket.emit('connected', {
+            message: 'Connected to committee WebSocket',
+            user: {
+                username: socket.user.username,
+                role: socket.user.role,
+                countryName: socket.user.countryName
             }
         });
+
+        // Handle disconnect
+        socket.on('disconnect', () => {
+            const committeeClients = committeeConnections.get(committeeId);
+            if (committeeClients) {
+                committeeClients.delete(socket.id);
+
+                // If no more connections, remove the committee
+                if (committeeClients.size === 0) {
+                    committeeConnections.delete(committeeId);
+                }
+            }
+        });
+
+        // Handle messages
+        socket.on('ping', () => {
+            socket.emit('pong');
+        });
     });
+
+    return io;
 }
 
 // Function to broadcast a message to all committee connections
@@ -101,11 +92,9 @@ function broadcastToCommittee(committeeId, message) {
         return;
     }
 
-    const messageString = JSON.stringify(message);
-
-    for (const [socket, client] of committeeClients.entries()) {
+    for (const [socketId, client] of committeeClients.entries()) {
         try {
-            socket.send(messageString);
+            client.socket.emit(message.type, message);
         } catch (error) {
             console.error('Error sending message to client:', error);
         }
@@ -119,12 +108,10 @@ function broadcastToRoles(committeeId, roles, message) {
         return;
     }
 
-    const messageString = JSON.stringify(message);
-
-    for (const [socket, client] of committeeClients.entries()) {
+    for (const [socketId, client] of committeeClients.entries()) {
         if (roles.includes(client.user.role)) {
             try {
-                socket.send(messageString);
+                client.socket.emit(message.type, message);
             } catch (error) {
                 console.error('Error sending message to client:', error);
             }
@@ -139,12 +126,10 @@ function sendToCountry(committeeId, countryName, message) {
         return;
     }
 
-    const messageString = JSON.stringify(message);
-
-    for (const [socket, client] of committeeClients.entries()) {
+    for (const [socketId, client] of committeeClients.entries()) {
         if (client.user.role === 'delegate' && client.user.countryName === countryName) {
             try {
-                socket.send(messageString);
+                client.socket.emit(message.type, message);
             } catch (error) {
                 console.error('Error sending message to client:', error);
             }
@@ -309,7 +294,7 @@ function notifyVotingResults(committeeId, voting, stats) {
 }
 
 module.exports = {
-    websocketRoute,
+    setupSocketIO,
     broadcastToCommittee,
     broadcastToRoles,
     sendToCountry,

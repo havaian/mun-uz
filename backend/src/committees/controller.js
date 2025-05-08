@@ -5,83 +5,83 @@ const { getDb } = require('../../db');
 const AuthModel = require('../auth/model');
 
 class CommitteesController {
-    async getAllCommittees(request, reply) {
+    async getAllCommittees(req, res) {
         try {
             const committees = await CommitteesModel.getAllCommittees();
-            return committees;
+            return res.json(committees);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getCommitteesForEvent(request, reply) {
+    async getCommitteesForEvent(req, res) {
         try {
-            const { eventId } = request.params;
+            const { eventId } = req.params;
 
             const committees = await CommitteesModel.getCommitteesForEvent(eventId);
 
-            return committees;
+            return res.json(committees);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getCommitteeById(request, reply) {
+    async getCommitteeById(req, res) {
         try {
-            const { id } = request.params;
+            const { id } = req.params;
 
             const committee = await CommitteesModel.getCommitteeById(id);
 
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
-            return committee;
+            return res.json(committee);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async createCommittee(request, reply) {
+    async createCommittee(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const committeeData = request.body;
+            const committeeData = req.body;
 
             const newCommittee = await CommitteesModel.createCommittee(committeeData);
 
-            return reply.code(201).send(newCommittee);
+            return res.status(201).json(newCommittee);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async updateCommittee(request, reply) {
+    async updateCommittee(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
-            const committeeData = request.body;
+            const { id } = req.params;
+            const committeeData = req.body;
 
             // Check if committee exists
             const existingCommittee = await CommitteesModel.getCommitteeById(id);
             if (!existingCommittee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // If presidium, check if they are assigned to this committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== id) {
-                return reply.code(403).send({ error: 'Forbidden - you can only update your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== id) {
+                return res.status(403).json({ error: 'Forbidden - you can only update your assigned committee' });
             }
 
             // Update the committee
@@ -89,73 +89,73 @@ class CommitteesController {
 
             // Return the updated committee
             const updatedCommittee = await CommitteesModel.getCommitteeById(id);
-            return updatedCommittee;
+            return res.json(updatedCommittee);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async deleteCommittee(request, reply) {
+    async deleteCommittee(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const { id } = request.params;
+            const { id } = req.params;
 
             // Check if committee exists
             const existingCommittee = await CommitteesModel.getCommitteeById(id);
             if (!existingCommittee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Delete the committee
             await CommitteesModel.deleteCommittee(id);
 
-            return { success: true };
+            return res.json({ success: true });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getCommitteeStatus(request, reply) {
+    async getCommitteeStatus(req, res) {
         try {
-            const { id } = request.params;
+            const { id } = req.params;
 
             const status = await CommitteesModel.getCommitteeStatus(id);
 
             if (!status) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
-            return status;
+            return res.json(status);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async generateQRCodes(request, reply) {
+    async generateQRCodes(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
+            const { id } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(id);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // If presidium, check if they are assigned to this committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== id) {
-                return reply.code(403).send({ error: 'Forbidden - you can only access your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== id) {
+                return res.status(403).json({ error: 'Forbidden - you can only access your assigned committee' });
             }
 
             // Generate QR codes
@@ -163,6 +163,13 @@ class CommitteesController {
 
             // Create PDF document
             const doc = new PDFDocument();
+
+            // Set response headers for PDF
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="committee_${id}_qrcodes.pdf"`);
+
+            // Pipe PDF to response
+            doc.pipe(res);
 
             // Add QR codes to PDF
             for (let i = 0; i < qrData.length; i++) {
@@ -175,8 +182,8 @@ class CommitteesController {
                 }
 
                 // Add content to PDF
-                doc.fontSize(24).text(committee.name, { align: 'center' });
-                doc.fontSize(18).text(country.name, { align: 'center' });
+                doc.fontSize(24).text(`Committee: ${committee.name}`, { align: 'center' });
+                doc.fontSize(18).text(`Country: ${country.name}`, { align: 'center' });
                 doc.moveDown();
 
                 // Add QR code image
@@ -190,27 +197,12 @@ class CommitteesController {
                 doc.fontSize(12).text('Scan this QR code to access the MUN platform', { align: 'center' });
             }
 
-            // Create buffer
-            return new Promise((resolve, reject) => {
-                const chunks = [];
-                doc.on('data', chunk => chunks.push(chunk));
-                doc.on('end', () => {
-                    const pdfBuffer = Buffer.concat(chunks);
+            // Finalize the PDF
+            doc.end();
 
-                    // Set response headers
-                    reply.header('Content-Type', 'application/pdf');
-                    reply.header('Content-Disposition', `attachment; filename="committee_${id}_qrcodes.pdf"`);
-
-                    resolve(pdfBuffer);
-                });
-                doc.on('error', reject);
-
-                // Finalize the PDF
-                doc.end();
-            });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
@@ -223,26 +215,26 @@ class CommitteesController {
         });
     }
 
-    async assignPresidium(request, reply) {
+    async assignPresidium(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const { id } = request.params;
-            const { username, password } = request.body;
+            const { id } = req.params;
+            const { username, password } = req.body;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(id);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Check if username already exists
             const existingUser = await AuthModel.findUserByUsername(username);
             if (existingUser) {
-                return reply.code(409).send({ error: 'Username already exists' });
+                return res.status(409).json({ error: 'Username already exists' });
             }
 
             // Create presidium user
@@ -257,45 +249,45 @@ class CommitteesController {
 
             // Return success but not password
             delete newUser.password;
-            return {
+            return res.json({
                 success: true,
                 user: newUser
-            };
+            });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async removePresidium(request, reply) {
+    async removePresidium(req, res) {
         try {
             // Check if user is admin
-            if (request.user.role !== 'admin') {
-                return reply.code(403).send({ error: 'Forbidden - admin access required' });
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Forbidden - admin access required' });
             }
 
-            const { id, username } = request.params;
+            const { id, username } = req.params;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(id);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Find user
             const user = await AuthModel.findUserByUsername(username);
             if (!user || user.role !== 'presidium' || user.committeeId !== id) {
-                return reply.code(404).send({ error: 'Presidium member not found in this committee' });
+                return res.status(404).json({ error: 'Presidium member not found in this committee' });
             }
 
             // Delete user
-            const usersCollection = getDb().collection('users');
-            await usersCollection.deleteOne({ _id: user._id });
+            const User = mongoose.model('User');
+            await User.deleteOne({ _id: user._id });
 
-            return { success: true };
+            return res.json({ success: true });
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 }

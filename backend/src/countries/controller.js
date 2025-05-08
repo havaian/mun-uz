@@ -1,51 +1,51 @@
 const CountriesModel = require('./model');
 
 class CountriesController {
-    async getAllCountries(request, reply) {
+    async getAllCountries(req, res) {
         try {
             const countries = await CountriesModel.getAllCountries();
-            return countries;
+            return res.json(countries);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getCountryByCode(request, reply) {
+    async getCountryByCode(req, res) {
         try {
-            const { code } = request.params;
+            const { code } = req.params;
 
             const country = await CountriesModel.getCountryByCode(code);
 
             if (!country) {
-                return reply.code(404).send({ error: 'Country not found' });
+                return res.status(404).json({ error: 'Country not found' });
             }
 
-            return country;
+            return res.json(country);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async searchCountries(request, reply) {
+    async searchCountries(req, res) {
         try {
-            const { query, language } = request.query;
+            const { query, language } = req.query;
 
             if (!query || query.trim() === '') {
                 // Return all countries if no query provided
                 const countries = await CountriesModel.getAllCountries();
-                return countries;
+                return res.json(countries);
             }
 
             // Use the provided language or default to English
             const searchLanguage = language && ['en', 'ru'].includes(language) ? language : 'en';
 
             const results = await CountriesModel.searchCountries(query, searchLanguage);
-            return results;
+            return res.json(results);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 }

@@ -6,10 +6,10 @@ async function connectToDatabase() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
-    
+
     // Create schemas and models
     await setupSchemas();
-    
+
     return mongoose.connection;
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error);
@@ -19,11 +19,9 @@ async function connectToDatabase() {
 
 // Setup schemas and create indexes
 async function setupSchemas() {
-  // Create indexes on collections equivalent to the original code
-  // This is separate from schema definition, but ensures the same indexes exist
-  
+  // Create indexes on collections
   const db = mongoose.connection.db;
-  
+
   await db.collection('users').createIndex({ username: 1 }, { unique: true });
   await db.collection('users').createIndex({ token: 1 });
   await db.collection('committees').createIndex({ eventId: 1 });
@@ -35,7 +33,7 @@ async function setupSchemas() {
   await db.collection('activities').createIndex({ committeeId: 1 });
   await db.collection('activities').createIndex({ sessionId: 1 });
   await db.collection('activities').createIndex({ countryName: 1 });
-  
+
   console.log('Database indexes created');
 }
 

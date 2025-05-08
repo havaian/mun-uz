@@ -2,64 +2,64 @@ const ResolutionsModel = require('./model');
 const CommitteesModel = require('../committees/model');
 
 class ResolutionsController {
-    async getResolutionsForCommittee(request, reply) {
+    async getResolutionsForCommittee(req, res) {
         try {
-            const { committeeId } = request.params;
+            const { committeeId } = req.params;
 
             const resolutions = await ResolutionsModel.getResolutionsForCommittee(committeeId);
 
-            return resolutions;
+            return res.json(resolutions);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async getResolutionById(request, reply) {
+    async getResolutionById(req, res) {
         try {
-            const { id } = request.params;
+            const { id } = req.params;
 
             const resolution = await ResolutionsModel.getResolutionById(id);
 
             if (!resolution) {
-                return reply.code(404).send({ error: 'Resolution not found' });
+                return res.status(404).json({ error: 'Resolution not found' });
             }
 
-            return resolution;
+            return res.json(resolution);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async createResolution(request, reply) {
+    async createResolution(req, res) {
         try {
             // Check if user is a delegate
-            if (request.user.role !== 'delegate') {
-                return reply.code(403).send({ error: 'Forbidden - only delegates can create resolutions' });
+            if (req.user.role !== 'delegate') {
+                return res.status(403).json({ error: 'Forbidden - only delegates can create resolutions' });
             }
 
-            const resolutionData = request.body;
+            const resolutionData = req.body;
 
             // Check if committee exists
             const committee = await CommitteesModel.getCommitteeById(resolutionData.committeeId);
             if (!committee) {
-                return reply.code(404).send({ error: 'Committee not found' });
+                return res.status(404).json({ error: 'Committee not found' });
             }
 
             // Check if the delegate belongs to this committee
-            if (request.user.committeeId !== resolutionData.committeeId) {
-                return reply.code(403).send({ error: 'Forbidden - you can only create resolutions for your assigned committee' });
+            if (req.user.committeeId !== resolutionData.committeeId) {
+                return res.status(403).json({ error: 'Forbidden - you can only create resolutions for your assigned committee' });
             }
 
             // Check if the delegate's country is in the authors list
-            if (!resolutionData.authors.includes(request.user.countryName)) {
-                return reply.code(400).send({ error: 'Your country must be included as an author' });
+            if (!resolutionData.authors.includes(req.user.countryName)) {
+                return res.status(400).json({ error: 'Your country must be included as an author' });
             }
 
             // Check if there are enough authors
             if (resolutionData.authors.length < committee.minResolutionAuthors) {
-                return reply.code(400).send({
+                return res.status(400).json({
                     error: `Not enough authors. At least ${committee.minResolutionAuthors} required`,
                     minRequired: committee.minResolutionAuthors
                 });
@@ -68,37 +68,37 @@ class ResolutionsController {
             // Create new resolution
             const newResolution = await ResolutionsModel.createResolution(resolutionData);
 
-            return reply.code(201).send(newResolution);
+            return res.status(201).json(newResolution);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async reviewResolution(request, reply) {
+    async reviewResolution(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
-            const { status, reviewComments } = request.body;
+            const { id } = req.params;
+            const { status, reviewComments } = req.body;
 
             // Check if resolution exists
             const resolution = await ResolutionsModel.getResolutionById(id);
             if (!resolution) {
-                return reply.code(404).send({ error: 'Resolution not found' });
+                return res.status(404).json({ error: 'Resolution not found' });
             }
 
             // If presidium, check if they are assigned to this resolution's committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== resolution.committeeId.toString()) {
-                return reply.code(403).send({ error: 'Forbidden - you can only review resolutions for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== resolution.committeeId.toString()) {
+                return res.status(403).json({ error: 'Forbidden - you can only review resolutions for your assigned committee' });
             }
 
             // Check if resolution is in draft status
             if (resolution.status !== 'draft') {
-                return reply.code(400).send({ error: 'Resolution is not in draft status' });
+                return res.status(400).json({ error: 'Resolution is not in draft status' });
             }
 
             // Update resolution
@@ -106,36 +106,36 @@ class ResolutionsController {
 
             // Return the updated resolution
             const updatedResolution = await ResolutionsModel.getResolutionById(id);
-            return updatedResolution;
+            return res.json(updatedResolution);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async setAsWorkingDraft(request, reply) {
+    async setAsWorkingDraft(req, res) {
         try {
             // Check if user is admin or presidium
-            if (request.user.role !== 'admin' && request.user.role !== 'presidium') {
-                return reply.code(403).send({ error: 'Forbidden - admin or presidium access required' });
+            if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
 
-            const { id } = request.params;
+            const { id } = req.params;
 
             // Check if resolution exists
             const resolution = await ResolutionsModel.getResolutionById(id);
             if (!resolution) {
-                return reply.code(404).send({ error: 'Resolution not found' });
+                return res.status(404).json({ error: 'Resolution not found' });
             }
 
             // If presidium, check if they are assigned to this resolution's committee
-            if (request.user.role === 'presidium' && request.user.committeeId !== resolution.committeeId.toString()) {
-                return reply.code(403).send({ error: 'Forbidden - you can only manage resolutions for your assigned committee' });
+            if (req.user.role === 'presidium' && req.user.committeeId !== resolution.committeeId.toString()) {
+                return res.status(403).json({ error: 'Forbidden - you can only manage resolutions for your assigned committee' });
             }
 
             // Check if resolution status is accepted
             if (resolution.status !== 'accepted') {
-                return reply.code(400).send({ error: 'Only accepted resolutions can be set as working draft' });
+                return res.status(400).json({ error: 'Only accepted resolutions can be set as working draft' });
             }
 
             // Set as working draft
@@ -143,47 +143,47 @@ class ResolutionsController {
 
             // Return the updated resolution
             const updatedResolution = await ResolutionsModel.getResolutionById(id);
-            return updatedResolution;
+            return res.json(updatedResolution);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    async confirmCoAuthor(request, reply) {
+    async confirmCoAuthor(req, res) {
         try {
             // Check if user is a delegate
-            if (request.user.role !== 'delegate') {
-                return reply.code(403).send({ error: 'Forbidden - only delegates can confirm co-authorship' });
+            if (req.user.role !== 'delegate') {
+                return res.status(403).json({ error: 'Forbidden - only delegates can confirm co-authorship' });
             }
 
-            const { id } = request.params;
+            const { id } = req.params;
 
             // Check if resolution exists
             const resolution = await ResolutionsModel.getResolutionById(id);
             if (!resolution) {
-                return reply.code(404).send({ error: 'Resolution not found' });
+                return res.status(404).json({ error: 'Resolution not found' });
             }
 
             // Check if the delegate belongs to the same committee as the resolution
-            if (request.user.committeeId !== resolution.committeeId.toString()) {
-                return reply.code(403).send({ error: 'Forbidden - you can only co-author resolutions in your assigned committee' });
+            if (req.user.committeeId !== resolution.committeeId.toString()) {
+                return res.status(403).json({ error: 'Forbidden - you can only co-author resolutions in your assigned committee' });
             }
 
             // Check if resolution is still in draft status
             if (resolution.status !== 'draft') {
-                return reply.code(400).send({ error: 'Cannot confirm co-authorship - resolution is no longer in draft status' });
+                return res.status(400).json({ error: 'Cannot confirm co-authorship - resolution is no longer in draft status' });
             }
 
             // Add the delegate's country as co-author
-            await ResolutionsModel.confirmCoAuthor(id, request.user.countryName);
+            await ResolutionsModel.confirmCoAuthor(id, req.user.countryName);
 
             // Return the updated resolution
             const updatedResolution = await ResolutionsModel.getResolutionById(id);
-            return updatedResolution;
+            return res.json(updatedResolution);
         } catch (error) {
-            request.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 }
