@@ -23,7 +23,7 @@ const routes = [
     {
         path: '/admin',
         name: 'admin',
-        component: () => import('../views/admin/DashboardView.vue'),
+        component: () => import('../views/admin/AdminLayout.vue'),
         meta: { requiresAuth: true, role: 'admin' },
         children: [
             {

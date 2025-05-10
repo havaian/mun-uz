@@ -11,11 +11,7 @@ services:
       - "127.0.0.1:3000:3000"
     depends_on:
       - mongo
-    environment:
-      - NODE_ENV=development
-      - MONGODB_URI=mongodb://mongo:27017/mun-uz
-      - PORT=3000
-      - JWT_SECRET=development_secret_replace_this_in_production
+    env_file: ./.env
     volumes:
       - ./backend:/app
       - /app/node_modules

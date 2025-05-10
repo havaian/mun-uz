@@ -74,7 +74,8 @@ export const committeesService = {
     getStatus: id => api.get(`/committees/${id}/status`),
     generateQRCodes: id => api.get(`/committees/${id}/qrcodes`, { responseType: 'blob' }),
     assignPresidium: (id, data) => api.post(`/committees/${id}/presidium`, data),
-    removePresidium: (id, username) => api.delete(`/committees/${id}/presidium/${username}`)
+    removePresidium: (id, username) => api.delete(`/committees/${id}/presidium/${username}`),
+    getPresidiumMembers: committeeId => api.get(`/committees/${committeeId}/presidium`)
 }
 
 // Sessions services
@@ -120,6 +121,12 @@ export const statisticsService = {
     getDelegateStatistics: (committeeId, countryName) => api.get(`/statistics/committees/${committeeId}/delegates/${countryName}/statistics`),
     getCommitteeSummary: committeeId => api.get(`/statistics/committees/${committeeId}/summary`),
     exportStatistics: committeeId => api.get(`/statistics/committees/${committeeId}/export`, { responseType: 'blob' })
+}
+
+export const countriesService = {
+    getAll: () => api.get('/countries'),
+    getByCode: (code) => api.get(`/countries/${code}`),
+    search: (query, language) => api.get('/countries/search', { params: { query, language } })
 }
 
 // WebSocket service

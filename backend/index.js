@@ -17,6 +17,14 @@ const server = http.createServer(app);
 // Connect to MongoDB
 connectToDatabase();
 
+const seedDatabase = require('./src/seeds');
+
+// After connecting to the database:
+seedDatabase().then(() => {
+  console.log('Database seeded, starting server...');
+  // Continue with server startup
+});
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

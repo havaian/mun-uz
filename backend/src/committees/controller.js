@@ -161,8 +161,20 @@ class CommitteesController {
             // Generate QR codes
             const qrData = await CommitteesModel.generateQRCodes(id);
 
-            // Create PDF document
-            const doc = new PDFDocument();
+            // Create PDF document with high-quality settings
+            const doc = new PDFDocument({
+                size: 'A4',
+                margin: 40,
+                autoFirstPage: true,
+                compress: false, // Disable compression for higher quality
+                info: {
+                    Title: `QR Codes for ${committee.name}`,
+                    Author: 'MUN.UZ Platform',
+                    Subject: 'Delegate QR Codes',
+                    Keywords: 'QR, MUN, delegate',
+                    Creator: 'MUN.UZ Platform'
+                }
+            });
 
             // Set response headers for PDF
             res.setHeader('Content-Type', 'application/pdf');
@@ -171,44 +183,102 @@ class CommitteesController {
             // Pipe PDF to response
             doc.pipe(res);
 
-            // Add QR codes to PDF
-            for (let i = 0; i < qrData.length; i++) {
-                const country = qrData[i];
-                const qrCodeDataUrl = await this.generateQRCodeDataUrl(country.token);
+            // Add header with committee name
+            doc.font('Helvetica-Bold').fontSize(16).text(`Committee: ${committee.name}`, { align: 'center' });
+            doc.moveDown(0.5);
 
-                // Add page for new country
-                if (i > 0) {
+            // Configuration for grid layout
+            const pageWidth = 595.28; // A4 width in points
+            const pageHeight = 841.89; // A4 height in points
+            const margin = 40;
+            const contentWidth = pageWidth - (2 * margin);
+            const contentHeight = pageHeight - (2 * margin) - 60; // 60 for header and footer
+
+            const qrCodesPerRow = 3;
+            const qrCodesPerColumn = 4;
+            const qrCodesPerPage = qrCodesPerRow * qrCodesPerColumn;
+
+            // Calculate QR code size - make it larger for better quality
+            const qrCodeWidth = Math.floor(contentWidth / qrCodesPerRow) - 20; // More spacing
+            const qrCodeHeight = Math.floor((contentHeight / qrCodesPerColumn) - 40); // 40 for country name and spacing
+            const qrCodeSize = Math.min(qrCodeWidth, qrCodeHeight);
+
+            // Calculate total pages needed
+            const totalPages = Math.ceil(qrData.length / qrCodesPerPage);
+
+            let currentPage = 1;
+
+            // Loop through all countries
+            for (let i = 0; i < qrData.length; i++) {
+                // Check if we need a new page
+                if (i > 0 && i % qrCodesPerPage === 0) {
+                    // Add page number at the bottom
+                    doc.font('Helvetica').fontSize(10).text(`Page ${currentPage} of ${totalPages}`, margin, pageHeight - 30, {
+                        align: 'center',
+                        width: contentWidth
+                    });
+
+                    // Add a new page
                     doc.addPage();
+                    currentPage++;
+
+                    // Add header with committee name on new page
+                    doc.font('Helvetica-Bold').fontSize(16).text(`Committee: ${committee.name}`, { align: 'center' });
+                    doc.moveDown(0.5);
                 }
 
-                // Add content to PDF
-                doc.fontSize(24).text(`Committee: ${committee.name}`, { align: 'center' });
-                doc.fontSize(18).text(`Country: ${country.name}`, { align: 'center' });
-                doc.moveDown();
+                const pagePosition = i % qrCodesPerPage;
+                const row = Math.floor(pagePosition / qrCodesPerRow);
+                const col = pagePosition % qrCodesPerRow;
 
-                // Add QR code image
-                doc.image(qrCodeDataUrl, {
-                    fit: [250, 250],
-                    align: 'center',
-                    valign: 'center'
+                // Center QR codes in their cells with more spacing
+                const xPos = margin + (col * (contentWidth / qrCodesPerRow)) + ((contentWidth / qrCodesPerRow - qrCodeSize) / 2);
+                const yPos = margin + 50 + (row * (contentHeight / qrCodesPerColumn)) + ((contentHeight / qrCodesPerColumn - qrCodeSize - 40) / 2);
+
+                const country = qrData[i];
+
+                // Generate high-quality QR code
+                const qrCodeDataUrl = await this.generateHighQualityQRCode(country.token);
+
+                // Add QR code with high quality
+                doc.image(qrCodeDataUrl, xPos, yPos, { width: qrCodeSize, height: qrCodeSize });
+
+                // Add country name below QR code with better formatting
+                doc.font('Helvetica-Bold').fontSize(12).text(country.name, xPos, yPos + qrCodeSize + 10, {
+                    width: qrCodeSize,
+                    align: 'center'
                 });
-
-                doc.moveDown();
-                doc.fontSize(12).text('Scan this QR code to access the MUN platform', { align: 'center' });
             }
+
+            // Add page number at the bottom of the last page
+            doc.font('Helvetica').fontSize(10).text(`Page ${currentPage} of ${totalPages}`, margin, pageHeight - 30, {
+                align: 'center',
+                width: contentWidth
+            });
 
             // Finalize the PDF
             doc.end();
 
         } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: 'Internal Server Error' });
+            console.error('Error generating QR codes:', error);
+            return res.status(500).json({ error: 'Internal Server Error', details: error.message });
         }
     }
 
-    async generateQRCodeDataUrl(data) {
+    async generateHighQualityQRCode(data) {
         return new Promise((resolve, reject) => {
-            qrcode.toDataURL(data, (err, url) => {
+            // Use the highest possible settings for quality
+            qrcode.toDataURL(data, {
+                errorCorrectionLevel: 'H', // Highest error correction level
+                type: 'image/png',          // Use PNG for better quality
+                quality: 1.0,              // Highest quality
+                margin: 2,                 // Slightly larger margin for better scanning
+                scale: 10,                 // Much larger scale for printing
+                color: {
+                    dark: '#000000',       // Pure black for better contrast
+                    light: '#FFFFFF'       // Pure white for better contrast
+                }
+            }, (err, url) => {
                 if (err) reject(err);
                 else resolve(url);
             });
@@ -285,6 +355,30 @@ class CommitteesController {
             await User.deleteOne({ _id: user._id });
 
             return res.json({ success: true });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+
+    async getPresidiumMembers(req, res) {
+        try {
+            const { id } = req.params;
+
+            // Check if committee exists
+            const committee = await CommitteesModel.getCommitteeById(id);
+            if (!committee) {
+                return res.status(404).json({ error: 'Committee not found' });
+            }
+
+            // Find presidium members assigned to this committee
+            const User = require('mongoose').model('User'); // or however you access your User model
+            const presidiumMembers = await User.find({
+                role: 'presidium',
+                committeeId: id
+            }).select('-password');  // Exclude password field
+
+            return res.json(presidiumMembers);
         } catch (error) {
             console.error(error);
             return res.status(500).json({ error: 'Internal Server Error' });

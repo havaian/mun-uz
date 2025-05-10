@@ -163,4 +163,19 @@ router.delete('/:id/presidium/:username',
     }
 );
 
+router.get('/:id/presidium',
+    authenticate,
+    [
+        param('id').isMongoId().withMessage('Invalid committee ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await CommitteesController.getPresidiumMembers(req, res);
+    }
+);
+
 module.exports = router;

@@ -2,20 +2,45 @@
     <div>
         <header class="mb-8">
             <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-bold text-gray-900">Committees</h1>
-                <button @click="showCreateModal = true" class="btn btn-primary">
-                    Create Committee
-                </button>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Committees</h1>
+                    <p v-if="selectedEvent" class="mt-1 text-sm text-gray-500">
+                        Event: {{ selectedEvent.name }}
+                    </p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select v-model="selectedEventId" class="form-input" @change="handleEventChange">
+                        <option value="">All Events</option>
+                        <option v-for="event in events" :key="event._id" :value="event._id">
+                            {{ event.name }}
+                        </option>
+                    </select>
+                    <button @click="showCreateModal = true" class="btn btn-primary" :disabled="!selectedEventId">
+                        Create Committee
+                    </button>
+                </div>
             </div>
         </header>
 
         <!-- Committees Grid -->
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-if="loading" class="text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+
+        <div v-else-if="!selectedEventId" class="card text-center py-12">
+            <p class="text-gray-500">Please select an event to manage its committees</p>
+        </div>
+
+        <div v-else-if="committees.length === 0" class="card text-center py-12">
+            <p class="text-gray-500">No committees found for this event. Create your first committee to get started.</p>
+        </div>
+
+        <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="committee in committees" :key="committee._id" class="card">
                 <div class="flex justify-between items-start">
                     <div>
                         <h3 class="text-lg font-medium text-gray-900">{{ committee.name }}</h3>
-                        <p class="text-sm text-gray-500">{{ committee.type }}</p>
+                        <p class="text-sm text-gray-500">{{ getCommitteeTypeName(committee.type) }}</p>
                     </div>
                     <span :class="[
                         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
@@ -36,7 +61,7 @@
                     </p>
                 </div>
 
-                <div class="mt-6 flex items-center justify-between">
+                <div class="mt-6 flex flex-wrap items-center gap-4">
                     <button @click="() => handleEditCommittee(committee)"
                         class="text-sm text-un-blue hover:text-blue-700">
                         Edit
@@ -45,6 +70,20 @@
                         class="text-sm text-un-blue hover:text-blue-700">
                         Generate QR Codes
                     </button>
+                    <button v-if="committee.status === 'setup'"
+                        @click="() => updateCommitteeStatus(committee._id, 'active')"
+                        class="text-sm text-un-blue hover:text-blue-700">
+                        Activate
+                    </button>
+                    <button v-if="committee.status === 'active'"
+                        @click="() => updateCommitteeStatus(committee._id, 'completed')"
+                        class="text-sm text-un-blue hover:text-blue-700">
+                        Complete
+                    </button>
+                    <router-link :to="`/admin/presidium?committeeId=${committee._id}`"
+                        class="text-sm text-un-blue hover:text-blue-700">
+                        Manage Presidium
+                    </router-link>
                 </div>
             </div>
         </div>
@@ -91,14 +130,29 @@
                                             type="number" min="1" class="form-input" required />
                                     </div>
 
+                                    <div v-if="editingCommittee">
+                                        <label for="status" class="form-label">Status</label>
+                                        <select id="status" v-model="form.status" class="form-input">
+                                            <option value="setup">Setup</option>
+                                            <option value="active">Active</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+
                                     <div>
-                                        <label class="form-label">Countries</label>
+                                        <div class="flex justify-between items-center">
+                                            <label class="form-label">Countries</label>
+                                            <div class="flex items-center">
+                                                <input type="text" v-model="countrySearch"
+                                                    placeholder="Search countries" class="form-input text-sm py-1" />
+                                            </div>
+                                        </div>
                                         <div class="mt-2 space-y-2">
                                             <div v-for="(country, index) in form.countries" :key="index"
                                                 class="flex items-center space-x-2">
                                                 <select v-model="country.name" class="form-input flex-1" required>
                                                     <option value="">Select a country</option>
-                                                    <option v-for="c in availableCountries" :key="c" :value="c">
+                                                    <option v-for="c in filteredCountries" :key="c" :value="c">
                                                         {{ c }}
                                                     </option>
                                                 </select>
@@ -132,8 +186,8 @@
                                         <button type="button" class="btn btn-outline" @click="showCreateModal = false">
                                             Cancel
                                         </button>
-                                        <button type="submit" class="btn btn-primary" :disabled="loading">
-                                            {{ loading ? 'Saving...' : 'Save Committee' }}
+                                        <button type="submit" class="btn btn-primary" :disabled="formLoading">
+                                            {{ formLoading ? 'Saving...' : 'Save Committee' }}
                                         </button>
                                     </div>
                                 </form>
@@ -147,15 +201,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { TrashIcon } from '@heroicons/vue/24/outline'
-import { committeesService } from '../../services/api'
+import { committeesService, eventsService, countriesService } from '../../services/api'
 import { toast } from 'vue3-toastify'
 
+const route = useRoute()
+const router = useRouter()
+
 const committees = ref([])
-const availableCountries = ref([])
-const loading = ref(false)
+const events = ref([])
+const countries = ref([])
+const countrySearch = ref('')
+const selectedEventId = ref('')
+const selectedEvent = ref(null)
+
+const loading = ref(true)
+const formLoading = ref(false)
 const showCreateModal = ref(false)
 const editingCommittee = ref(null)
 
@@ -163,31 +227,97 @@ const form = ref({
     name: '',
     type: 'GA',
     minResolutionAuthors: 3,
-    countries: []
+    status: 'setup',
+    countries: [],
+    eventId: ''
+})
+
+const filteredCountries = computed(() => {
+    if (!countrySearch.value) return countries.value
+    return countries.value.filter(c =>
+        c.toLowerCase().includes(countrySearch.value.toLowerCase())
+    )
 })
 
 onMounted(async () => {
     await Promise.all([
-        fetchCommittees(),
+        fetchEvents(),
         fetchCountries()
     ])
+
+    // Check if eventId is in the query params
+    if (route.query.eventId) {
+        selectedEventId.value = route.query.eventId
+        await fetchCommittees()
+    }
 })
 
-async function fetchCommittees() {
+watch(selectedEventId, async (newId) => {
+    // Update URL without reloading the page
+    if (newId) {
+        router.replace({ query: { eventId: newId } })
+    } else {
+        router.replace({ query: {} })
+    }
+})
+
+async function fetchEvents() {
     try {
-        const response = await committeesService.getAll()
-        committees.value = response.data
+        const response = await eventsService.getAll()
+        events.value = response.data
     } catch (error) {
-        console.error('Error fetching committees:', error)
+        console.error('Error fetching events:', error)
+        toast.error('Failed to load events')
     }
 }
 
 async function fetchCountries() {
     try {
         const response = await countriesService.getAll()
-        availableCountries.value = response.data.map(country => country.name.en)
+        // Extract country names from the API response
+        countries.value = response.data.map(country => country.name.en)
     } catch (error) {
         console.error('Error fetching countries:', error)
+        toast.error('Failed to load countries')
+        // Fallback to empty array if API fails
+        countries.value = []
+    }
+}
+
+async function fetchCommittees() {
+    if (!selectedEventId.value) {
+        committees.value = []
+        loading.value = false
+        return
+    }
+
+    loading.value = true
+    try {
+        const [committeeResponse, eventResponse] = await Promise.all([
+            committeesService.getForEvent(selectedEventId.value),
+            eventsService.getById(selectedEventId.value)
+        ])
+
+        committees.value = committeeResponse.data
+        selectedEvent.value = eventResponse.data
+    } catch (error) {
+        console.error('Error fetching committees:', error)
+        toast.error('Failed to load committees')
+    } finally {
+        loading.value = false
+    }
+}
+
+function handleEventChange() {
+    fetchCommittees()
+}
+
+function getCommitteeTypeName(type) {
+    switch (type) {
+        case 'GA': return 'General Assembly'
+        case 'SC': return 'Security Council'
+        case 'other': return 'Other'
+        default: return type
     }
 }
 
@@ -197,7 +327,9 @@ function handleEditCommittee(committee) {
         name: committee.name,
         type: committee.type,
         minResolutionAuthors: committee.minResolutionAuthors,
-        countries: [...committee.countries]
+        status: committee.status,
+        countries: [...(committee.countries || [])],
+        eventId: committee.eventId
     }
     showCreateModal.value = true
 }
@@ -215,13 +347,25 @@ function removeCountry(index) {
 }
 
 async function handleSubmit() {
-    loading.value = true
+    // Validate countries (must be unique)
+    const countryNames = form.value.countries.map(c => c.name)
+    if (new Set(countryNames).size !== countryNames.length) {
+        toast.error('Each country must be unique')
+        return
+    }
+
+    formLoading.value = true
     try {
+        const committeeData = {
+            ...form.value,
+            eventId: selectedEventId.value
+        }
+
         if (editingCommittee.value) {
-            await committeesService.update(editingCommittee.value._id, form.value)
+            await committeesService.update(editingCommittee.value._id, committeeData)
             toast.success('Committee updated successfully')
         } else {
-            await committeesService.create(form.value)
+            await committeesService.create(committeeData)
             toast.success('Committee created successfully')
         }
         await fetchCommittees()
@@ -229,8 +373,9 @@ async function handleSubmit() {
         resetForm()
     } catch (error) {
         console.error('Error saving committee:', error)
+        toast.error('Failed to save committee')
     } finally {
-        loading.value = false
+        formLoading.value = false
     }
 }
 
@@ -244,9 +389,21 @@ async function generateQRCodes(committeeId) {
         link.download = `committee_${committeeId}_qrcodes.pdf`
         link.click()
         window.URL.revokeObjectURL(url)
+        toast.success('QR codes generated successfully')
     } catch (error) {
         console.error('Error generating QR codes:', error)
         toast.error('Failed to generate QR codes')
+    }
+}
+
+async function updateCommitteeStatus(committeeId, status) {
+    try {
+        await committeesService.update(committeeId, { status })
+        await fetchCommittees()
+        toast.success(`Committee ${status === 'active' ? 'activated' : 'completed'} successfully`)
+    } catch (error) {
+        console.error('Error updating committee status:', error)
+        toast.error('Failed to update committee status')
     }
 }
 
@@ -255,7 +412,9 @@ function resetForm() {
         name: '',
         type: 'GA',
         minResolutionAuthors: 3,
-        countries: []
+        status: 'setup',
+        countries: [],
+        eventId: selectedEventId.value
     }
     editingCommittee.value = null
 }

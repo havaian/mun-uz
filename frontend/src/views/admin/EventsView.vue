@@ -11,7 +11,15 @@
 
         <!-- Events List -->
         <div class="space-y-6">
-            <div v-for="event in events" :key="event._id" class="card">
+            <div v-if="loading" class="text-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+
+            <div v-else-if="events.length === 0" class="text-center py-12">
+                <p class="text-gray-500">No events found. Create your first event to get started.</p>
+            </div>
+
+            <div v-else v-for="event in events" :key="event._id" class="card">
                 <div class="flex items-start justify-between">
                     <div>
                         <h3 class="text-lg font-medium text-gray-900">{{ event.name }}</h3>
@@ -48,10 +56,20 @@
                             Delete
                         </button>
                     </div>
-                    <button v-if="event.status === 'draft'" @click="() => handleActivateEvent(event)"
-                        class="btn btn-primary text-sm">
-                        Activate
-                    </button>
+                    <div class="flex items-center space-x-4">
+                        <router-link :to="`/admin/committees?eventId=${event._id}`"
+                            class="text-sm text-un-blue hover:text-blue-700">
+                            View Committees
+                        </router-link>
+                        <button v-if="event.status === 'draft'" @click="() => handleActivateEvent(event)"
+                            class="btn btn-primary btn-sm">
+                            Activate
+                        </button>
+                        <button v-else-if="event.status === 'active'" @click="() => handleCompleteEvent(event)"
+                            class="btn btn-secondary btn-sm">
+                            Complete
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -101,12 +119,21 @@
                                         </div>
                                     </div>
 
+                                    <div v-if="editingEvent">
+                                        <label for="status" class="form-label">Status</label>
+                                        <select id="status" v-model="form.status" class="form-input">
+                                            <option value="draft">Draft</option>
+                                            <option value="active">Active</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+
                                     <div class="mt-6 flex justify-end space-x-3">
                                         <button type="button" class="btn btn-outline" @click="showCreateModal = false">
                                             Cancel
                                         </button>
-                                        <button type="submit" class="btn btn-primary" :disabled="loading">
-                                            {{ loading ? 'Saving...' : 'Save Event' }}
+                                        <button type="submit" class="btn btn-primary" :disabled="formLoading">
+                                            {{ formLoading ? 'Saving...' : 'Save Event' }}
                                         </button>
                                     </div>
                                 </form>
@@ -124,10 +151,11 @@ import { ref, onMounted } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { eventsService } from '../../services/api'
 import { toast } from 'vue3-toastify'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 const events = ref([])
-const loading = ref(false)
+const loading = ref(true)
+const formLoading = ref(false)
 const showCreateModal = ref(false)
 const editingEvent = ref(null)
 
@@ -135,7 +163,8 @@ const form = ref({
     name: '',
     description: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    status: 'draft'
 })
 
 onMounted(async () => {
@@ -143,11 +172,15 @@ onMounted(async () => {
 })
 
 async function fetchEvents() {
+    loading.value = true
     try {
         const response = await eventsService.getAll()
         events.value = response.data
     } catch (error) {
         console.error('Error fetching events:', error)
+        toast.error('Failed to load events')
+    } finally {
+        loading.value = false
     }
 }
 
@@ -156,14 +189,20 @@ function handleEditEvent(event) {
     form.value = {
         name: event.name,
         description: event.description,
-        startDate: format(new Date(event.startDate), "yyyy-MM-dd'T'HH:mm"),
-        endDate: format(new Date(event.endDate), "yyyy-MM-dd'T'HH:mm")
+        startDate: formatDateForInput(event.startDate),
+        endDate: formatDateForInput(event.endDate),
+        status: event.status
     }
     showCreateModal.value = true
 }
 
+function formatDateForInput(dateString) {
+    if (!dateString) return ''
+    return format(new Date(dateString), "yyyy-MM-dd'T'HH:mm")
+}
+
 async function handleDeleteEvent(event) {
-    if (!confirm('Are you sure you want to delete this event?')) return
+    if (!confirm(`Are you sure you want to delete the event "${event.name}"?`)) return
 
     try {
         await eventsService.delete(event._id)
@@ -171,6 +210,7 @@ async function handleDeleteEvent(event) {
         toast.success('Event deleted successfully')
     } catch (error) {
         console.error('Error deleting event:', error)
+        toast.error('Failed to delete event')
     }
 }
 
@@ -181,11 +221,25 @@ async function handleActivateEvent(event) {
         toast.success('Event activated successfully')
     } catch (error) {
         console.error('Error activating event:', error)
+        toast.error('Failed to activate event')
+    }
+}
+
+async function handleCompleteEvent(event) {
+    if (!confirm(`Are you sure you want to mark "${event.name}" as completed?`)) return
+
+    try {
+        await eventsService.update(event._id, { status: 'completed' })
+        await fetchEvents()
+        toast.success('Event marked as completed')
+    } catch (error) {
+        console.error('Error completing event:', error)
+        toast.error('Failed to complete event')
     }
 }
 
 async function handleSubmit() {
-    loading.value = true
+    formLoading.value = true
     try {
         if (editingEvent.value) {
             await eventsService.update(editingEvent.value._id, form.value)
@@ -199,12 +253,14 @@ async function handleSubmit() {
         resetForm()
     } catch (error) {
         console.error('Error saving event:', error)
+        toast.error('Failed to save event')
     } finally {
-        loading.value = false
+        formLoading.value = false
     }
 }
 
 function formatDate(date) {
+    if (!date) return 'N/A'
     return format(new Date(date), 'MMM d, yyyy HH:mm')
 }
 
@@ -213,8 +269,15 @@ function resetForm() {
         name: '',
         description: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        status: 'draft'
     }
     editingEvent.value = null
 }
 </script>
+
+<style scoped>
+.btn-sm {
+    @apply py-1 px-3 text-sm;
+}
+</style>
