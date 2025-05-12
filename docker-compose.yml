@@ -14,7 +14,7 @@ services:
       - "${BACKEND_EXPOSE}:${BACKEND_PORT}"
     environment:
       - MONGODB_URI=mongodb://mongo:${MONGODB_PORT}/${MONGO_DATABASE}
-    env_file: ./.env"
+    env_file: ./.env
     volumes:
       - ./backend:/app
       - /app/node_modules
