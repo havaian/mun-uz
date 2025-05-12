@@ -1,7 +1,5 @@
 version: '3.8'
 
-name: ${PROJECT_NAME}
-
 services:
   api:
     build:
@@ -14,13 +12,9 @@ services:
         condition: service_healthy
     ports:
       - "${BACKEND_EXPOSE}:${BACKEND_PORT}"
-    depends_on:
-      - mongo
     environment:
       - MONGODB_URI=mongodb://mongo:${MONGODB_PORT}/${MONGO_DATABASE}
-    env_file: ./.env
-    ports:
-      - "${BACKEND_EXPOSE}:${BACKEND_PORT}"
+    env_file: ./.env"
     volumes:
       - ./backend:/app
       - /app/node_modules
