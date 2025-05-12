@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { toast } from 'vue3-toastify'
 
+const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+
 const api = axios.create({
-    baseURL: `${import.meta.env.VITE_API_URL}/api`,
+    baseURL: `${apiUrl}/api`,
     timeout: 5000,
     headers: {
         'Content-Type': 'application/json',
