@@ -6,7 +6,7 @@ deploy:
   tags:
     - shell
   variables:
-    PROJECT_DIR: "/home/root/projects/e-polyclinic"
+    PROJECT_DIR: "/home/root/projects/mun-uz"
     GIT_STRATEGY: none  # Prevent automatic checkout
   script:
     - echo "Starting deployment..."

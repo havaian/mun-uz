@@ -55,7 +55,7 @@ check_service "mongo"
 
 # Check if backend is responding
 echo "🔍 Checking backend API health..."
-if curl -sf http://localhost:3000/health > /dev/null; then
+if curl -sf http://localhost:2223/health > /dev/null; then
     echo "✅ Backend API is responding"
 else
     echo "❌ Backend API is not responding"
@@ -79,9 +79,9 @@ docker image prune -f
 # Display service URLs
 echo "
 📋 MUN.UZ Services:
-🌐 Frontend: http://localhost:80  (or your domain)
-🔧 Backend API: http://localhost:3000
-🗄️ MongoDB: mongodb://localhost:27017
+🌐 Frontend: http://localhost:2222
+🔧 Backend API: http://localhost:2223
+🗄️ MongoDB: mongodb://localhost:2227
 "
 
 echo "🎉 MUN.UZ deployment completed successfully!"
