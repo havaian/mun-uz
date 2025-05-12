@@ -52,7 +52,7 @@ app.use('/api/countries', require('./src/countries/routes'));
 
 // Health check route
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date() });
+    res.status(200).json({ status: 'ok', timestamp: new Date() });
 });
 
 // Error handling middleware
