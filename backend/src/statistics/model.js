@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Types;
 
 // Define Activity Schema
 const activitySchema = new mongoose.Schema({
@@ -49,7 +50,7 @@ class StatisticsModel {
     async getCommitteeStatistics(committeeId) {
         return Activity.aggregate([
             {
-                $match: { committeeId: mongoose.Types.ObjectId(committeeId) }
+                $match: { committeeId: new ObjectId(committeeId) }
             },
             {
                 $group: {
@@ -98,7 +99,7 @@ class StatisticsModel {
     async getActivityBreakdown(committeeId) {
         return Activity.aggregate([
             {
-                $match: { committeeId: mongoose.Types.ObjectId(committeeId) }
+                $match: { committeeId: new ObjectId(committeeId) }
             },
             {
                 $group: {

@@ -4,7 +4,8 @@
             <div class="flex items-center justify-between">
                 <h1 class="text-3xl font-bold text-gray-900">Statistics</h1>
                 <div class="flex items-center space-x-4">
-                    <select v-model="selectedCommitteeId" class="form-input">
+                    <select v-model="selectedCommitteeId" class="form-input select-with-padding"
+                        @change="handleCommitteeChange">
                         <option value="">All Committees</option>
                         <option v-for="committee in committees" :key="committee._id" :value="committee._id">
                             {{ committee.name }}
@@ -106,6 +107,13 @@
         </div>
     </div>
 </template>
+
+<style>
+.select-with-padding {
+  padding-right: 2.5rem !important; /* Increased padding on the right side */
+  min-width: 180px; /* Minimum width for the dropdown */
+}
+</style>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'

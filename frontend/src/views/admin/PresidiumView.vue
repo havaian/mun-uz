@@ -23,12 +23,12 @@
         </header>
 
         <!-- Presidium Members List -->
-        <div v-if="loading" class="text-center py-12">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div v-if="!selectedCommitteeId" class="card text-center py-12">
+            <p class="text-gray-500">Please select a committee to manage its presidium members</p>
         </div>
 
-        <div v-else-if="!selectedCommitteeId" class="card text-center py-12">
-            <p class="text-gray-500">Please select a committee to manage its presidium members</p>
+        <div v-else-if="loading" class="text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
         </div>
 
         <div v-else class="space-y-6">
@@ -162,7 +162,7 @@ const presidiumMembers = ref([])
 const selectedCommitteeId = ref('')
 const selectedCommittee = ref(null)
 const memberToRemove = ref(null)
-const loading = ref(true)
+const loading = ref(false) // Changed from true to false initially
 const formLoading = ref(false)
 const confirmLoading = ref(false)
 const showCreateModal = ref(false)
@@ -215,8 +215,6 @@ async function fetchPresidiumMembers() {
         selectedCommittee.value = committees.value.find(c => c._id === selectedCommitteeId.value)
 
         // Get presidium members for this committee
-        // Note: We're assuming your backend provides an API for this
-        // If not, you may need to modify this part
         const response = await committeesService.getPresidiumMembers(selectedCommitteeId.value)
         presidiumMembers.value = response.data
     } catch (error) {

@@ -68,6 +68,7 @@ export const committeesService = {
     getAll: () => api.get('/committees'),
     getForEvent: eventId => api.get(`/committees/event/${eventId}`),
     getById: id => api.get(`/committees/${id}`),
+    getMyCommittee: () => api.get('/committees/me'),  // New endpoint for presidium's assigned committee
     create: data => api.post('/committees', data),
     update: (id, data) => api.put(`/committees/${id}`, data),
     delete: id => api.delete(`/committees/${id}`),
@@ -75,7 +76,7 @@ export const committeesService = {
     generateQRCodes: id => api.get(`/committees/${id}/qrcodes`, { responseType: 'blob' }),
     assignPresidium: (id, data) => api.post(`/committees/${id}/presidium`, data),
     removePresidium: (id, username) => api.delete(`/committees/${id}/presidium/${username}`),
-    getPresidiumMembers: committeeId => api.get(`/committees/${committeeId}/presidium`)
+    getPresidiumMembers: id => api.get(`/committees/${id}/presidium`)
 }
 
 // Sessions services

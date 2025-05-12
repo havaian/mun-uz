@@ -9,6 +9,11 @@ router.get('/', async (req, res) => {
     await CommitteesController.getAllCommittees(req, res);
 });
 
+// Get committee for logged in presidium
+router.get('/me', authenticate, async (req, res) => {
+    await CommitteesController.getMyCommittee(req, res);
+});
+
 // Get committees for event
 router.get('/event/:eventId',
     [

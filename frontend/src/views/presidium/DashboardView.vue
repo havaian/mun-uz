@@ -20,6 +20,22 @@
             </div>
         </header>
 
+        <!-- Committee Info -->
+        <div v-if="committee" class="card mb-8">
+            <h2 class="text-xl font-semibold mb-4">Committee Information</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p><span class="font-medium">Type:</span> {{ formatCommitteeType(committee.type) }}</p>
+                    <p><span class="font-medium">Status:</span> {{ formatStatus(committee.status) }}</p>
+                    <p><span class="font-medium">Min Resolution Authors:</span> {{ committee.minResolutionAuthors }}</p>
+                </div>
+                <div>
+                    <p><span class="font-medium">Countries:</span> {{ committee.countries?.length || 0 }}</p>
+                    <p><span class="font-medium">Event:</span> {{ eventName }}</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Active Session Controls -->
         <div v-if="activeSession" class="space-y-8">
             <!-- Session Info and Controls -->
@@ -114,9 +130,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, watch } from 'vue'
 import { useAuthStore } from '../../stores/auth'
-import { sessionsService, committeesService } from '../../services/api'
+import { sessionsService, committeesService, eventsService } from '../../services/api'
 import { toast } from 'vue3-toastify'
 
 const authStore = useAuthStore()
@@ -129,6 +145,7 @@ const timer = ref(0)
 const timerDuration = ref(10)
 const timerRunning = ref(false)
 const timerInterval = ref(null)
+const eventName = ref('')
 
 const hasQuorum = computed(() => {
     if (!committee.value?.countries) return false
@@ -146,15 +163,21 @@ onBeforeUnmount(() => {
     }
 })
 
+watch(() => committee.value, async () => {
+    if (committee.value?.eventId) {
+        await fetchEventData(committee.value.eventId)
+    }
+}, { immediate: true })
+
 async function fetchCommitteeData() {
     loading.value = true
     try {
-        // Get committee data
-        const response = await committeesService.getById(authStore.user.committeeId)
+        // Get committee data using the new API endpoint
+        const response = await committeesService.getMyCommittee()
         committee.value = response.data
 
         // Check for active session
-        const sessions = await sessionsService.getForCommittee(authStore.user.committeeId)
+        const sessions = await sessionsService.getForCommittee(committee.value._id)
         activeSession.value = sessions.data.find(s => s.status === 'active')
 
         if (activeSession.value) {
@@ -168,10 +191,20 @@ async function fetchCommitteeData() {
     }
 }
 
+async function fetchEventData(eventId) {
+    try {
+        const response = await eventsService.getById(eventId)
+        eventName.value = response.data.name
+    } catch (error) {
+        console.error('Error fetching event data:', error)
+        eventName.value = 'Unknown Event'
+    }
+}
+
 async function startNewSession() {
     loading.value = true
     try {
-        const response = await sessionsService.create(authStore.user.committeeId, {
+        const response = await sessionsService.create(committee.value._id, {
             presentCountries: []
         })
         activeSession.value = response.data
@@ -258,31 +291,54 @@ function formatTime(seconds) {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-function initializeWebSocket() {
-    const ws = createWebSocket(authStore.user.committeeId)
-    if (!ws) return
+function formatCommitteeType(type) {
+    switch (type) {
+        case 'GA':
+            return 'General Assembly'
+        case 'SC':
+            return 'Security Council'
+        default:
+            return type
+    }
+}
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        handleWebSocketMessage(data)
+function formatStatus(status) {
+    return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+function initializeWebSocket() {
+    if (!committee.value?._id) return;
+
+    // This function should be defined in your API services or websocket utility
+    // If not available, you may need to implement or remove this functionality
+    try {
+        const wsConnection = createWebSocket(committee.value._id);
+        if (wsConnection) {
+            wsConnection.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+        }
+    } catch (error) {
+        console.error('WebSocket initialization error:', error);
     }
 }
 
 function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'session_updated':
-            activeSession.value = data.session
-            currentMode.value = data.session.mode
-            presentCountries.value = data.session.presentCountries
-            break
+            activeSession.value = data.session;
+            currentMode.value = data.session.mode;
+            presentCountries.value = data.session.presentCountries;
+            break;
         case 'timer_started':
-            timer.value = data.duration
-            timerRunning.value = true
-            break
+            timer.value = data.duration;
+            timerRunning.value = true;
+            break;
         case 'timer_ended':
-            timer.value = 0
-            timerRunning.value = false
-            break
+            timer.value = 0;
+            timerRunning.value = false;
+            break;
     }
 }
 </script>

@@ -218,7 +218,7 @@ const countrySearch = ref('')
 const selectedEventId = ref('')
 const selectedEvent = ref(null)
 
-const loading = ref(true)
+const loading = ref(false) // Changed from true to false initially to avoid premature loading
 const formLoading = ref(false)
 const showCreateModal = ref(false)
 const editingCommittee = ref(null)
@@ -249,6 +249,9 @@ onMounted(async () => {
     if (route.query.eventId) {
         selectedEventId.value = route.query.eventId
         await fetchCommittees()
+    } else {
+        // If no event ID in query, we show the selection prompt instead of a loader
+        loading.value = false
     }
 })
 

@@ -26,7 +26,8 @@ class AuthController {
             const jwtToken = jwt.sign({
                 id: user._id,
                 username: user.username,
-                role: user.role
+                committeeId: user.committeeId,
+                role: user.role,
             }, process.env.JWT_SECRET);
 
             // Return the token and user information
@@ -35,7 +36,8 @@ class AuthController {
                 user: {
                     id: user._id,
                     username: user.username,
-                    role: user.role
+                    committeeId: user.committeeId,
+                    role: user.role,
                 }
             });
         } catch (error) {

@@ -384,6 +384,34 @@ class CommitteesController {
             return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
+
+    /**
+     * Get committee for logged in presidium
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+    */
+    async getMyCommittee(req, res) {
+        try {
+            // Check if user is presidium
+            if (req.user.role !== 'presidium') {
+                return res.status(403).json({ error: 'Forbidden - presidium access required' });
+            }
+
+            const { committeeId } = req.user;
+
+            // Get the committee that the presidium is assigned to
+            const committee = await CommitteesModel.getCommitteeById(committeeId);
+
+            if (!committee) {
+                return res.status(404).json({ error: 'Committee not found' });
+            }
+
+            return res.json(committee);
+        } catch (error) {
+            console.error('Error in getMyCommittee:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 }
 
 module.exports = new CommitteesController();
