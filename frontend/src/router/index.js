@@ -21,6 +21,12 @@ const routes = [
         meta: { requiresAuth: false }
     },
     {
+        path: '/delegate/direct-login',
+        name: 'delegate-direct-login',
+        component: () => import('../views/delegate/DirectLoginView.vue'),
+        meta: { requiresAuth: false }
+    },
+    {
         path: '/admin',
         name: 'admin',
         component: () => import('../views/admin/AdminLayout.vue'),

@@ -238,7 +238,7 @@ class CommitteesController {
                 const country = qrData[i];
 
                 // Generate high-quality QR code
-                const qrCodeDataUrl = await this.generateHighQualityQRCode(country.token);
+                const qrCodeDataUrl = await this.generateHighQualityQRCode(country.token, process.env.PROJECT_URL);
 
                 // Add QR code with high quality
                 doc.image(qrCodeDataUrl, xPos, yPos, { width: qrCodeSize, height: qrCodeSize });
@@ -265,10 +265,13 @@ class CommitteesController {
         }
     }
 
-    async generateHighQualityQRCode(data) {
+    async generateHighQualityQRCode(token, baseUrl) {
+        // Create a complete login URL instead of just the token
+        const loginUrl = `${baseUrl}/delegate/direct-login?token=${token}`;
+        
         return new Promise((resolve, reject) => {
             // Use the highest possible settings for quality
-            qrcode.toDataURL(data, {
+            qrcode.toDataURL(loginUrl, {
                 errorCorrectionLevel: 'H', // Highest error correction level
                 type: 'image/png',          // Use PNG for better quality
                 quality: 1.0,              // Highest quality

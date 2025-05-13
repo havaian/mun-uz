@@ -35,3 +35,125 @@
         @apply mt-1 text-sm text-red-600;
     }
 }
+
+@media (max-width: 640px) {
+
+    /* Make cards take full width and add spacing */
+    .card {
+        @apply mb-4 mx-0 w-full;
+    }
+
+    /* Adjust buttons for touch targets */
+    .btn {
+        @apply py-2 px-4 text-sm;
+        min-height: 44px;
+        /* Recommended minimum touch target height */
+    }
+
+    /* Ensure forms are more usable on mobile */
+    .form-input,
+    .form-select {
+        @apply text-base py-3;
+        /* Larger text and padding for touch */
+    }
+
+    /* Add more spacing between form elements */
+    .space-y-4 {
+        @apply space-y-6;
+    }
+
+    /* Adjust table display for small screens */
+    table {
+        @apply block w-full overflow-x-auto;
+    }
+
+    /* Make sure modals don't exceed viewport */
+    .headlessui-dialog-panel {
+        max-width: 95vw !important;
+        margin: 0 auto;
+    }
+
+    /* Adjust grid layouts */
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4 {
+        @apply grid-cols-1;
+    }
+
+    /* Ensure appropriate spacing in flex containers */
+    .space-x-4>*+* {
+        @apply ml-0 mt-4;
+    }
+
+    /* Convert horizontal flex to vertical on small screens */
+    .flex-row-to-col-mobile {
+        @apply flex-col items-start;
+    }
+
+    /* Add these utility classes to use in your components */
+    .mobile-full-width {
+        @apply w-full;
+    }
+
+    .mobile-stack {
+        @apply flex-col;
+    }
+
+    .mobile-center {
+        @apply justify-center items-center text-center;
+    }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+
+    /* Adjust grid layouts for tablets */
+    .grid-cols-3,
+    .grid-cols-4 {
+        @apply grid-cols-2;
+    }
+
+    /* Make buttons more appropriate for tablet */
+    .btn {
+        @apply text-sm;
+    }
+}
+
+/* Fix for admin layout sidebar on mobile */
+@media (max-width: 768px) {
+    .admin-layout {
+        @apply flex-col;
+    }
+
+    .admin-sidebar {
+        @apply w-full sticky top-0 z-10 border-b border-gray-200;
+        height: auto;
+    }
+
+    .admin-sidebar-nav {
+        @apply flex flex-row overflow-x-auto py-2;
+    }
+
+    .admin-content {
+        @apply w-full;
+    }
+}
+
+/* Touchscreen-friendly controls */
+@media (hover: none) {
+
+    /* Larger touch targets */
+    .btn,
+    .form-checkbox,
+    .form-radio,
+    .clickable {
+        @apply cursor-pointer;
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* More spacing for touch targets */
+    .touch-friendly-nav>* {
+        @apply py-3;
+    }
+}
