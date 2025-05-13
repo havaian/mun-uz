@@ -32,38 +32,37 @@
                     {{ formatTime(timer) }}
                 </div>
             </div>
-
-            <div class="card">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Quorum Status</h3>
-                <div class="text-2xl font-semibold" :class="activeSession.quorum ? 'text-green-600' : 'text-red-600'">
-                    {{ activeSession.quorum ? 'Established' : 'Not Established' }}
-                </div>
-            </div>
         </div>
 
         <!-- Main Actions -->
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <!-- Resolutions -->
+            <!-- My Resolutions -->
             <div class="space-y-6">
-                <!-- Fixed header to match structure with Active Voting section -->
-                <div class="flex items-center justify-between h-10"> <!-- Added fixed height -->
-                    <h2 class="text-xl font-semibold text-gray-900">Resolutions</h2>
-                    <button @click="showResolutionModal = true" class="btn btn-primary">
+                <div class="flex items-center justify-between h-10">
+                    <h2 class="text-xl font-semibold text-gray-900">My Resolutions</h2>
+                    <button @click="openResolutionModal" class="btn btn-primary" :disabled="hasSubmittedResolution">
                         Submit Resolution
+                        <span v-if="hasSubmittedResolution" class="text-xs ml-1">(Already submitted)</span>
                     </button>
                 </div>
 
                 <div class="card">
-                    <div v-if="resolutions.length === 0" class="text-center py-6 text-gray-500">
-                        No resolutions submitted yet
+                    <div v-if="delegateResolutions.length === 0" class="text-center py-6 text-gray-500">
+                        You haven't submitted or co-authored any resolutions yet
                     </div>
                     <div v-else class="divide-y divide-gray-200">
-                        <div v-for="resolution in resolutions" :key="resolution._id" class="py-4">
+                        <div v-for="resolution in delegateResolutions" :key="resolution._id" class="py-4">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <h4 class="font-medium text-gray-900">{{ resolution.title }}</h4>
                                     <p class="text-sm text-gray-500">
                                         Authors: {{ resolution.authors.join(', ') }}
+                                    </p>
+                                    <p v-if="isMainAuthor(resolution)" class="text-xs text-un-blue mt-1">
+                                        You are the main author
+                                    </p>
+                                    <p v-else class="text-xs text-un-blue mt-1">
+                                        You are a co-author
                                     </p>
                                 </div>
                                 <span :class="[
@@ -80,12 +79,6 @@
                                     class="text-sm text-un-blue hover:text-blue-700">
                                     View Details
                                 </button>
-                                <button
-                                    v-if="resolution.status === 'draft' && !resolution.authors.includes(authStore.user.countryName)"
-                                    @click="confirmCoAuthorship(resolution)"
-                                    class="text-sm text-un-blue hover:text-blue-700">
-                                    Confirm Co-Authorship
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -94,11 +87,9 @@
 
             <!-- Active Voting -->
             <div class="space-y-6">
-                <!-- Matched structure to Resolutions header -->
-                <div class="flex items-center justify-between h-10"> <!-- Added fixed height -->
+                <div class="flex items-center justify-between h-10">
                     <h2 class="text-xl font-semibold text-gray-900">Active Voting</h2>
-                    <!-- Empty div to maintain layout even without a button -->
-                    <div></div>
+                    <div></div> <!-- Empty div to maintain layout -->
                 </div>
 
                 <div v-if="activeVoting" class="card">
@@ -139,7 +130,7 @@
             </div>
         </div>
 
-        <!-- Resolution Modal -->
+        <!-- Resolution Creation Modal -->
         <TransitionRoot appear :show="showResolutionModal" as="template">
             <Dialog as="div" class="relative z-10" @close="showResolutionModal = false">
                 <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0"
@@ -160,15 +151,25 @@
 
                                 <form @submit.prevent="submitResolution" class="mt-4 space-y-4">
                                     <div>
-                                        <label for="title" class="form-label">Title</label>
+                                        <label for="title" class="form-label">Resolution Title</label>
                                         <input id="title" v-model="resolutionForm.title" type="text" class="form-input"
-                                            required />
+                                            required placeholder="Enter title of your resolution" />
                                     </div>
 
                                     <div>
-                                        <label for="content" class="form-label">Content</label>
-                                        <textarea id="content" v-model="resolutionForm.content" rows="10"
-                                            class="form-input" required></textarea>
+                                        <label for="content" class="form-label">Google Docs Link</label>
+                                        <input id="content" v-model="resolutionForm.content" type="text"
+                                            class="form-input" required
+                                            placeholder="https://docs.google.com/document/d/..." />
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            Please paste a link to your resolution document in Google Docs.
+                                            Make sure the document is accessible to anyone with the link.
+                                        </p>
+                                        <p class="text-xs text-red-500 mt-1"
+                                            v-if="resolutionForm.content && !isValidGoogleDocsLink">
+                                            Please enter a valid Google Docs link starting with
+                                            https://docs.google.com/document/d/
+                                        </p>
                                     </div>
 
                                     <div>
@@ -186,6 +187,9 @@
                                                 </label>
                                             </div>
                                         </div>
+                                        <p v-if="committee?.minResolutionAuthors" class="mt-2 text-sm text-gray-500">
+                                            Minimum {{ committee.minResolutionAuthors }} authors required
+                                        </p>
                                     </div>
 
                                     <div class="mt-6 flex justify-end space-x-3">
@@ -193,11 +197,91 @@
                                             @click="showResolutionModal = false">
                                             Cancel
                                         </button>
-                                        <button type="submit" class="btn btn-primary" :disabled="submitting">
+                                        <button type="submit" class="btn btn-primary"
+                                            :disabled="submitting || !isValidForm">
                                             {{ submitting ? 'Submitting...' : 'Submit Resolution' }}
                                         </button>
                                     </div>
                                 </form>
+                            </DialogPanel>
+                        </TransitionChild>
+                    </div>
+                </div>
+            </Dialog>
+        </TransitionRoot>
+
+        <!-- Resolution Details Modal -->
+        <TransitionRoot appear :show="showResolutionDetailsModal" as="template">
+            <Dialog as="div" class="relative z-10" @close="showResolutionDetailsModal = false">
+                <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0"
+                    enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
+                    <div class="fixed inset-0 bg-black bg-opacity-25" />
+                </TransitionChild>
+
+                <div class="fixed inset-0 overflow-y-auto">
+                    <div class="flex min-h-full items-center justify-center p-4 text-center">
+                        <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0 scale-95"
+                            enter-to="opacity-100 scale-100" leave="duration-200 ease-in"
+                            leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+                            <DialogPanel
+                                class="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                <div class="flex items-start justify-between mb-4">
+                                    <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900">
+                                        Resolution Details
+                                    </DialogTitle>
+                                    <span :class="[
+                                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                        selectedResolution?.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                            selectedResolution?.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                'bg-yellow-100 text-yellow-800'
+                                    ]">
+                                        {{ selectedResolution?.status }}
+                                    </span>
+                                </div>
+
+                                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                    <h4 class="text-xl font-semibold text-gray-900 mb-2">{{ selectedResolution?.title }}
+                                    </h4>
+                                    <p class="text-sm text-gray-500 mb-4">
+                                        <span class="font-medium">Authors:</span> {{
+                                        selectedResolution?.authors.join(',') }}
+                                    </p>
+
+                                    <div class="mt-4">
+                                        <h5 class="text-md font-medium text-gray-700 mb-2">Google Docs Link:</h5>
+                                        <div class="bg-white border border-gray-200 rounded-md p-4">
+                                            <a :href="selectedResolution?.content" target="_blank"
+                                                class="text-blue-600 hover:text-blue-800 break-all underline">
+                                                {{ selectedResolution?.content }}
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="selectedResolution?.reviewComments" class="mt-4">
+                                        <h5 class="text-md font-medium text-gray-700 mb-2">Review Comments:</h5>
+                                        <div class="bg-white border border-gray-200 rounded-md p-4">
+                                            {{ selectedResolution?.reviewComments }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 text-sm text-gray-500">
+                                        <p><span class="font-medium">Submitted:</span>
+                                            {{ selectedResolution?.submissionTime ?
+                                                formatDate(selectedResolution.submissionTime) : 'N/A' }}
+                                        </p>
+                                        <p v-if="selectedResolution?.reviewTime">
+                                            <span class="font-medium">Reviewed:</span>
+                                            {{ formatDate(selectedResolution.reviewTime) }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end">
+                                    <button type="button" class="btn btn-outline"
+                                        @click="showResolutionDetailsModal = false">
+                                        Close
+                                    </button>
+                                </div>
                             </DialogPanel>
                         </TransitionChild>
                     </div>
@@ -211,18 +295,21 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { useAuthStore } from '../../stores/auth'
-import { committeesService, resolutionsService, votingsService, createWebSocket } from '../../services/api'
+import { committeesService, resolutionsService, votingsService, sessionsService, createWebSocket } from '../../services/api'
 import { toast } from 'vue3-toastify'
+import { format } from 'date-fns'
 
 const authStore = useAuthStore()
 const committee = ref(null)
 const activeSession = ref(null)
-const resolutions = ref([])
+const delegateResolutions = ref([]) // Changed from resolutions to delegateResolutions
 const activeVoting = ref(null)
 const timer = ref(0)
 const timerInterval = ref(null)
 
 const showResolutionModal = ref(false)
+const showResolutionDetailsModal = ref(false)
+const selectedResolution = ref(null)
 const submitting = ref(false)
 const voting = ref(false)
 
@@ -237,6 +324,26 @@ if (authStore.user?.countryName) {
     resolutionForm.value.authors.push(authStore.user.countryName)
 }
 
+// Computed properties for validations
+const isValidGoogleDocsLink = computed(() => {
+    const googleDocsPattern = /^https:\/\/docs\.google\.com\/document\/d\//;
+    return !resolutionForm.value.content || googleDocsPattern.test(resolutionForm.value.content);
+})
+
+const isValidForm = computed(() => {
+    // Check if form is valid
+    if (!resolutionForm.value.title.trim()) return false;
+    if (!resolutionForm.value.content.trim()) return false;
+    if (!isValidGoogleDocsLink.value) return false;
+
+    if (committee.value?.minResolutionAuthors &&
+        resolutionForm.value.authors.length < committee.value.minResolutionAuthors) {
+        return false;
+    }
+
+    return true;
+})
+
 const isPresent = computed(() => {
     if (!activeSession.value?.presentCountries) return false
     return activeSession.value.presentCountries.includes(authStore.user.countryName)
@@ -247,12 +354,18 @@ const hasVoted = computed(() => {
     return activeVoting.value.votes.some(v => v.countryName === authStore.user.countryName)
 })
 
+// Check if the current delegate has already submitted a resolution
+// Only consider resolutions where they are the main author (first in the list)
+const hasSubmittedResolution = computed(() => {
+    if (!delegateResolutions.value || !delegateResolutions.value.length) return false
+    return delegateResolutions.value.some(r => r.authors[0] === authStore.user.countryName)
+})
+
 onMounted(async () => {
-    console.log("Dashboard component mounted - loading data");
-    await Promise.all([
-        fetchCommitteeData(),
-        fetchResolutions()
-    ])
+    console.log('Component mounted with user:', authStore.user)
+    await fetchCommitteeData()
+    await fetchDelegateResolutions() // Changed from fetchResolutions to fetchDelegateResolutions
+    await fetchActiveSession()
     initializeWebSocket()
 })
 
@@ -264,56 +377,110 @@ onBeforeUnmount(() => {
 
 async function fetchCommitteeData() {
     try {
-        console.log("Fetching committee data");
         const response = await committeesService.getById(authStore.user.committeeId)
         committee.value = response.data
-        console.log("Committee data loaded:", committee.value);
     } catch (error) {
         console.error('Error fetching committee data:', error)
     }
 }
 
-async function fetchResolutions() {
+// New function to fetch only the delegate's resolutions
+async function fetchDelegateResolutions() {
     try {
-        console.log("Fetching resolutions data");
-        const response = await resolutionsService.getForCommittee(authStore.user.committeeId)
-        resolutions.value = response.data
-        console.log("Resolutions data loaded, count:", resolutions.value.length);
+        console.log('Fetching delegate resolutions for committee:', authStore.user.committeeId)
+        const response = await resolutionsService.getDelegateResolutions(authStore.user.committeeId)
+        console.log('Delegate resolutions data:', response.data)
+        delegateResolutions.value = response.data
     } catch (error) {
-        console.error('Error fetching resolutions:', error)
+        console.error('Error fetching delegate resolutions:', error)
     }
+}
+
+async function fetchActiveSession() {
+    try {
+        // Use the correct API call for active sessions
+        const response = await sessionsService.getForCommittee(authStore.user.committeeId)
+        // Find the active session in the response
+        const active = response.data.find(s => s.status === 'active')
+        console.log('Active session found:', active)
+        activeSession.value = active
+    } catch (error) {
+        console.error('Error fetching active session:', error)
+    }
+}
+
+// Check if the current user is the main author (first in the authors list)
+function isMainAuthor(resolution) {
+    return resolution.authors[0] === authStore.user.countryName
+}
+
+function openResolutionModal() {
+    if (hasSubmittedResolution.value) {
+        toast.error('You have already submitted a resolution for this event')
+        return
+    }
+
+    showResolutionModal.value = true
 }
 
 function viewResolution(resolution) {
-    // This function would typically open a modal or navigate to a detail view
-    console.log("Viewing resolution:", resolution.title);
-    toast.info(`Viewing resolution: ${resolution.title}`)
-    // You could redirect to the resolutions page with this resolution highlighted
-    // router.push(`/delegate/resolutions?highlight=${resolution._id}`);
+    selectedResolution.value = resolution
+    showResolutionDetailsModal.value = true
+}
+
+function formatDate(dateString) {
+    try {
+        return format(new Date(dateString), 'MMM d, yyyy HH:mm')
+    } catch (error) {
+        console.error("Error formatting date:", error)
+        return dateString
+    }
 }
 
 async function submitResolution() {
-    if (!resolutionForm.value.title.trim() || !resolutionForm.value.content.trim()) {
-        toast.error('Please fill in all required fields');
-        return;
+    if (!isValidForm.value) {
+        if (!resolutionForm.value.title.trim()) {
+            toast.error('Please enter a title for your resolution')
+            return
+        }
+
+        if (!resolutionForm.value.content.trim() || !isValidGoogleDocsLink.value) {
+            toast.error('Please enter a valid Google Docs link (https://docs.google.com/document/d/...)')
+            return
+        }
+
+        if (committee.value?.minResolutionAuthors &&
+            resolutionForm.value.authors.length < committee.value.minResolutionAuthors) {
+            toast.error(`At least ${committee.value.minResolutionAuthors} authors are required`)
+            return
+        }
+
+        return
     }
 
-    if (committee.value?.minResolutionAuthors &&
-        resolutionForm.value.authors.length < committee.value.minResolutionAuthors) {
-        toast.error(`At least ${committee.value.minResolutionAuthors} authors are required`);
-        return;
+    // Double check if the delegate has already submitted a resolution
+    if (hasSubmittedResolution.value) {
+        toast.error('You have already submitted a resolution for this event')
+        showResolutionModal.value = false
+        return
     }
 
     submitting.value = true
     try {
-        console.log("Submitting resolution");
+        console.log('Submitting resolution with data:', {
+            committeeId: authStore.user.committeeId,
+            title: resolutionForm.value.title,
+            content: resolutionForm.value.content,
+            authors: resolutionForm.value.authors
+        })
+
         const response = await resolutionsService.create({
             committeeId: authStore.user.committeeId,
             ...resolutionForm.value
         })
 
         // Add to local list
-        resolutions.value.unshift(response.data)
+        delegateResolutions.value.unshift(response.data)
         showResolutionModal.value = false
         toast.success('Resolution submitted successfully')
 
@@ -335,17 +502,6 @@ async function submitResolution() {
     }
 }
 
-async function confirmCoAuthorship(resolution) {
-    try {
-        await resolutionsService.confirmCoAuthor(resolution._id)
-        await fetchResolutions()
-        toast.success('Co-authorship confirmed')
-    } catch (error) {
-        console.error('Error confirming co-authorship:', error)
-        toast.error('Failed to confirm co-authorship')
-    }
-}
-
 async function submitVote(vote) {
     if (!activeVoting.value) return
 
@@ -362,7 +518,7 @@ async function submitVote(vote) {
 }
 
 function formatMode(mode) {
-    if (!mode) return 'Unknown';
+    if (!mode) return 'Unknown'
 
     return mode
         .split('_')
@@ -390,37 +546,32 @@ function getVotingTitle(voting) {
 }
 
 function initializeWebSocket() {
-    console.log("Initializing WebSocket connection");
     try {
         const ws = createWebSocket(authStore.user.committeeId)
-        if (!ws) {
-            console.log("Could not create WebSocket connection");
-            return;
-        }
+        if (!ws) return
 
         ws.onopen = () => {
-            console.log("WebSocket connection established");
+            console.log("WebSocket connection established")
         }
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data)
-                console.log("WebSocket message received:", data.type);
                 handleWebSocketMessage(data)
             } catch (error) {
-                console.error("Error processing WebSocket message:", error);
+                console.error("Error processing WebSocket message:", error)
             }
         }
 
         ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
+            console.error("WebSocket error:", error)
         }
 
         ws.onclose = () => {
-            console.log("WebSocket connection closed");
+            console.log("WebSocket connection closed")
         }
     } catch (error) {
-        console.error("Error setting up WebSocket:", error);
+        console.error("Error setting up WebSocket:", error)
     }
 }
 
@@ -428,11 +579,9 @@ function handleWebSocketMessage(data) {
     try {
         switch (data.type) {
             case 'session_updated':
-                console.log("Session updated:", data.session);
                 activeSession.value = data.session
                 break
             case 'timer_started':
-                console.log("Timer started:", data.duration);
                 timer.value = data.duration
                 if (timerInterval.value) clearInterval(timerInterval.value)
                 timerInterval.value = setInterval(() => {
@@ -441,27 +590,21 @@ function handleWebSocketMessage(data) {
                 }, 1000)
                 break
             case 'timer_ended':
-                console.log("Timer ended");
                 timer.value = 0
                 if (timerInterval.value) clearInterval(timerInterval.value)
                 break
             case 'voting_started':
-                console.log("Voting started:", data.voting);
                 activeVoting.value = data.voting
                 break
             case 'voting_results':
-                console.log("Voting results:", data);
                 activeVoting.value = null
                 break
             case 'resolution_submitted':
-                console.log("Resolution submitted, refreshing list");
-                fetchResolutions()
+                fetchDelegateResolutions() // Update to fetch only delegate's resolutions
                 break
-            default:
-                console.log("Unknown message type:", data.type);
         }
     } catch (error) {
-        console.error("Error handling WebSocket message:", error);
+        console.error("Error handling WebSocket message:", error)
     }
 }
 </script>

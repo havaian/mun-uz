@@ -36,7 +36,7 @@
             </div>
         </div>
 
-        <!-- Active Session Controls -->
+        <!-- Active Session Controls (only shown when session is active) -->
         <div v-if="activeSession" class="space-y-8">
             <!-- Session Info and Controls -->
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -87,7 +87,7 @@
                 </div>
             </div>
 
-            <!-- Roll Call and Countries -->
+            <!-- Roll Call and Countries (only when session is active) -->
             <div class="card">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-lg font-medium text-gray-900">Roll Call</h3>
@@ -107,33 +107,267 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Actions -->
-            <div class="flex justify-end space-x-4">
+            
+            <!-- Complete Session button (only when session is active) -->
+            <div class="flex justify-end space-x-4 mt-4">
                 <button @click="completeSession" class="btn btn-secondary" :disabled="loading">
                     Complete Session
                 </button>
             </div>
         </div>
 
-        <!-- No Active Session -->
-        <div v-else-if="!loading" class="text-center py-12">
+        <!-- No Active Session Message (only shown when no session is active) -->
+        <div v-else-if="!loading && !activeSession" class="text-center py-6 mb-8">
             <h3 class="text-lg font-medium text-gray-900 mb-2">No Active Session</h3>
-            <p class="text-gray-500 mb-6">Start a new session to begin committee proceedings</p>
+            <p class="text-gray-500">Start a new session to begin committee proceedings</p>
         </div>
 
         <!-- Loading State -->
-        <div v-else class="text-center py-12">
+        <div v-if="loading" class="text-center py-12">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
         </div>
+        
+        <!-- Resolutions Management (shown regardless of session status) -->
+        <div class="card mt-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-medium text-gray-900">Resolutions</h3>
+                <button @click="fetchResolutions" class="btn btn-primary" :disabled="loadingResolutions">
+                    {{ loadingResolutions ? 'Loading...' : 'Refresh Resolutions' }}
+                </button>
+            </div>
+
+            <!-- Pending Resolutions -->
+            <div v-if="loadingResolutions" class="text-center py-4">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+            <div v-else>
+                <h4 class="font-medium text-gray-700 mb-4">Pending Review</h4>
+                <div v-if="pendingResolutions.length === 0" class="text-center py-4 text-gray-500">
+                    No resolutions awaiting review
+                </div>
+                <div v-else class="space-y-4 mb-8">
+                    <div v-for="resolution in pendingResolutions" :key="resolution._id"
+                        class="border border-gray-200 rounded-md p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <h5 class="font-medium text-gray-900">{{ resolution.title }}</h5>
+                                <p class="text-sm text-gray-500">Authors: {{ resolution.authors.join(', ') }}</p>
+                            </div>
+                            <span
+                                class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+                                Pending
+                            </span>
+                        </div>
+                        <div class="mb-4">
+                            <button @click="viewResolution(resolution)"
+                                class="text-sm text-un-blue hover:text-blue-700">
+                                View Resolution
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <label for="reviewComments" class="form-label text-sm">Review Comments
+                                (optional)</label>
+                            <textarea id="reviewComments" v-model="reviewComments[resolution._id]" rows="2"
+                                class="form-input text-sm" placeholder="Add review comments..."></textarea>
+                        </div>
+                        <div class="mt-2 flex justify-end space-x-2">
+                            <button @click="reviewResolution(resolution._id, 'rejected')"
+                                class="btn bg-red-600 hover:bg-red-700 text-white text-sm py-1">
+                                Reject
+                            </button>
+                            <button @click="reviewResolution(resolution._id, 'accepted')"
+                                class="btn bg-green-600 hover:bg-green-700 text-white text-sm py-1">
+                                Accept
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accepted Resolutions -->
+                <h4 class="font-medium text-gray-700 mb-4">Accepted</h4>
+                <div v-if="acceptedResolutions.length === 0" class="text-center py-4 text-gray-500">
+                    No accepted resolutions
+                </div>
+                <div v-else class="space-y-4 mb-8">
+                    <div v-for="resolution in acceptedResolutions" :key="resolution._id"
+                        class="border border-gray-200 rounded-md p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <h5 class="font-medium text-gray-900">{{ resolution.title }}</h5>
+                                <p class="text-sm text-gray-500">Authors: {{ resolution.authors.join(', ') }}</p>
+                            </div>
+                            <span
+                                class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                Accepted
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <button @click="viewResolution(resolution)"
+                                class="text-sm text-un-blue hover:text-blue-700">
+                                View Resolution
+                            </button>
+                            <button @click="setWorkingDraft(resolution._id)" class="btn btn-primary text-sm py-1"
+                                :disabled="resolution.isWorkingDraft || !activeSession">
+                                {{ resolution.isWorkingDraft ? 'Current Working Draft' : 'Set as Working Draft' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rejected Resolutions -->
+                <h4 class="font-medium text-gray-700 mb-4">Rejected</h4>
+                <div v-if="rejectedResolutions.length === 0" class="text-center py-4 text-gray-500">
+                    No rejected resolutions
+                </div>
+                <div v-else class="space-y-4">
+                    <div v-for="resolution in rejectedResolutions" :key="resolution._id"
+                        class="border border-gray-200 rounded-md p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <h5 class="font-medium text-gray-900">{{ resolution.title }}</h5>
+                                <p class="text-sm text-gray-500">Authors: {{ resolution.authors.join(', ') }}</p>
+                            </div>
+                            <span
+                                class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                                Rejected
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <button @click="viewResolution(resolution)"
+                                class="text-sm text-un-blue hover:text-blue-700">
+                                View Resolution
+                            </button>
+                        </div>
+                        <div v-if="resolution.reviewComments" class="mt-2 text-sm">
+                            <p class="text-gray-700 font-medium">Review Comments:</p>
+                            <p class="text-gray-600">{{ resolution.reviewComments }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resolution Details Modal -->
+        <TransitionRoot appear :show="showResolutionModal" as="template">
+            <Dialog as="div" class="relative z-10" @close="showResolutionModal = false">
+                <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0"
+                    enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
+                    <div class="fixed inset-0 bg-black bg-opacity-25" />
+                </TransitionChild>
+
+                <div class="fixed inset-0 overflow-y-auto">
+                    <div class="flex min-h-full items-center justify-center p-4 text-center">
+                        <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0 scale-95"
+                            enter-to="opacity-100 scale-100" leave="duration-200 ease-in"
+                            leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+                            <DialogPanel
+                                class="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                <div class="flex items-start justify-between mb-4">
+                                    <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900">
+                                        Resolution Details
+                                    </DialogTitle>
+                                    <span :class="[
+                                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                        selectedResolution?.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                                            selectedResolution?.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                'bg-yellow-100 text-yellow-800'
+                                    ]">
+                                        {{ formatStatus(selectedResolution?.status || '') }}
+                                    </span>
+                                </div>
+
+                                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                    <h4 class="text-xl font-semibold text-gray-900 mb-2">{{ selectedResolution?.title }}
+                                    </h4>
+                                    <p class="text-sm text-gray-500 mb-4">
+                                        <span class="font-medium">Authors:</span> {{ selectedResolution?.authors.join(',') }}
+                                        <span
+                                            v-if="committee && selectedResolution?.authors.length < committee.minResolutionAuthors"
+                                            class="text-red-500 font-medium ml-2">
+                                            (Needs {{ committee.minResolutionAuthors -
+                                            selectedResolution?.authors.length }} more
+                                            {{ (committee.minResolutionAuthors - selectedResolution?.authors.length) ===
+                                            1 ? 'author' : 'authors' }})
+                                        </span>
+                                    </p>
+
+                                    <div class="mt-4">
+                                        <h5 class="text-md font-medium text-gray-700 mb-2">Google Docs Link:</h5>
+                                        <div class="bg-white border border-gray-200 rounded-md p-4">
+                                            <a :href="selectedResolution?.content" target="_blank"
+                                                class="text-blue-600 hover:text-blue-800 break-all underline">
+                                                {{ selectedResolution?.content }}
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="selectedResolution?.reviewComments" class="mt-4">
+                                        <h5 class="text-md font-medium text-gray-700 mb-2">Review Comments:</h5>
+                                        <div class="bg-white border border-gray-200 rounded-md p-4">
+                                            {{ selectedResolution?.reviewComments }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 text-sm text-gray-500">
+                                        <p><span class="font-medium">Submitted:</span>
+                                            {{ selectedResolution?.submissionTime ?
+                                                formatDate(selectedResolution.submissionTime) : 'N/A' }}
+                                        </p>
+                                        <p v-if="selectedResolution?.reviewTime">
+                                            <span class="font-medium">Reviewed:</span>
+                                            {{ formatDate(selectedResolution.reviewTime) }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div v-if="selectedResolution?.status === 'draft'" class="mb-4">
+                                    <label for="modalReviewComments" class="form-label">Review Comments
+                                        (optional)</label>
+                                    <textarea id="modalReviewComments" v-model="currentReviewComments" rows="3"
+                                        class="form-input" placeholder="Add review comments..."></textarea>
+                                </div>
+
+                                <div class="flex justify-between">
+                                    <div>
+                                        <div v-if="selectedResolution?.status === 'draft'" class="flex space-x-2">
+                                            <button @click="reviewResolution(selectedResolution._id, 'rejected', true)"
+                                                class="btn bg-red-600 hover:bg-red-700 text-white">
+                                                Reject
+                                            </button>
+                                            <button @click="reviewResolution(selectedResolution._id, 'accepted', true)"
+                                                class="btn bg-green-600 hover:bg-green-700 text-white"
+                                                :disabled="committee && selectedResolution?.authors.length < committee.minResolutionAuthors">
+                                                Accept
+                                            </button>
+                                        </div>
+                                        <div
+                                            v-else-if="selectedResolution?.status === 'accepted' && !selectedResolution?.isWorkingDraft && activeSession">
+                                            <button @click="setWorkingDraft(selectedResolution._id, true)"
+                                                class="btn btn-primary">
+                                                Set as Working Draft
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline" @click="showResolutionModal = false">
+                                        Close
+                                    </button>
+                                </div>
+                            </DialogPanel>
+                        </TransitionChild>
+                    </div>
+                </div>
+            </Dialog>
+        </TransitionRoot>
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, onBeforeUnmount, watch } from 'vue'
+import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { useAuthStore } from '../../stores/auth'
-import { sessionsService, committeesService, eventsService } from '../../services/api'
+import { sessionsService, committeesService, eventsService, resolutionsService, createWebSocket } from '../../services/api'
 import { toast } from 'vue3-toastify'
+import { format } from 'date-fns'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -147,13 +381,35 @@ const timerRunning = ref(false)
 const timerInterval = ref(null)
 const eventName = ref('')
 
+// Resolutions management
+const resolutions = ref([])
+const loadingResolutions = ref(false)
+const reviewComments = ref({})
+const showResolutionModal = ref(false)
+const selectedResolution = ref(null)
+const currentReviewComments = ref('')
+
 const hasQuorum = computed(() => {
     if (!committee.value?.countries) return false
     return presentCountries.value.length >= Math.ceil(committee.value.countries.length / 2)
 })
 
+// Filtered resolutions
+const pendingResolutions = computed(() => {
+    return resolutions.value.filter(r => r.status === 'draft')
+})
+
+const acceptedResolutions = computed(() => {
+    return resolutions.value.filter(r => r.status === 'accepted')
+})
+
+const rejectedResolutions = computed(() => {
+    return resolutions.value.filter(r => r.status === 'rejected')
+})
+
 onMounted(async () => {
     await fetchCommitteeData()
+    await fetchResolutions()
     initializeWebSocket()
 })
 
@@ -198,6 +454,21 @@ async function fetchEventData(eventId) {
     } catch (error) {
         console.error('Error fetching event data:', error)
         eventName.value = 'Unknown Event'
+    }
+}
+
+async function fetchResolutions() {
+    if (!committee.value?._id) return
+
+    loadingResolutions.value = true
+    try {
+        const response = await resolutionsService.getForCommittee(committee.value._id)
+        resolutions.value = response.data
+    } catch (error) {
+        console.error('Error fetching resolutions:', error)
+        toast.error('Failed to load resolutions')
+    } finally {
+        loadingResolutions.value = false
     }
 }
 
@@ -306,11 +577,107 @@ function formatStatus(status) {
     return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
+function formatDate(dateString) {
+    try {
+        return format(new Date(dateString), 'MMM d, yyyy HH:mm')
+    } catch (error) {
+        console.error("Error formatting date:", error)
+        return dateString
+    }
+}
+
+// Resolution management functions
+function viewResolution(resolution) {
+    selectedResolution.value = resolution
+    currentReviewComments.value = reviewComments.value[resolution._id] || ''
+    showResolutionModal.value = true
+}
+
+async function reviewResolution(resolutionId, status, fromModal = false) {
+    try {
+        // Get comments from either the modal or the main view
+        const comments = fromModal
+            ? currentReviewComments.value
+            : reviewComments.value[resolutionId] || ''
+
+        if (status === 'accepted') {
+            // Find the resolution
+            const resolution = resolutions.value.find(r => r._id === resolutionId)
+
+            // Check if it has enough authors
+            if (committee.value && resolution.authors.length < committee.value.minResolutionAuthors) {
+                toast.error(`Cannot accept: Resolution needs at least ${committee.value.minResolutionAuthors} authors. Currently has ${resolution.authors.length}.`)
+                return
+            }
+        }
+
+        const response = await resolutionsService.review(resolutionId, {
+            status,
+            reviewComments: comments
+        })
+
+        // Update the resolution in the list
+        const index = resolutions.value.findIndex(r => r._id === resolutionId)
+        if (index !== -1) {
+            resolutions.value[index] = response.data
+        }
+
+        // Clear comments
+        reviewComments.value[resolutionId] = ''
+        currentReviewComments.value = ''
+
+        toast.success(`Resolution ${status}`)
+
+        // Close modal if reviewing from modal
+        if (fromModal) {
+            showResolutionModal.value = false
+        }
+
+        // Refresh the list
+        await fetchResolutions()
+    } catch (error) {
+        console.error('Error reviewing resolution:', error)
+
+        if (error.response?.data?.error) {
+            toast.error(error.response.data.error)
+        } else {
+            toast.error('Failed to review resolution')
+        }
+    }
+}
+
+async function setWorkingDraft(resolutionId, fromModal = false) {
+    if (!activeSession.value) {
+        toast.error('You must start a session before setting a working draft')
+        return
+    }
+    
+    try {
+        await resolutionsService.setAsWorkingDraft(resolutionId)
+
+        toast.success('Working draft updated')
+
+        // Close modal if setting from modal
+        if (fromModal) {
+            showResolutionModal.value = false
+        }
+
+        // Refresh the list
+        await fetchResolutions()
+    } catch (error) {
+        console.error('Error setting working draft:', error)
+
+        if (error.response?.data?.error) {
+            toast.error(error.response.data.error)
+        } else {
+            toast.error('Failed to set working draft')
+        }
+    }
+}
+
 function initializeWebSocket() {
     if (!committee.value?._id) return;
 
-    // This function should be defined in your API services or websocket utility
-    // If not available, you may need to implement or remove this functionality
     try {
         const wsConnection = createWebSocket(committee.value._id);
         if (wsConnection) {
@@ -338,6 +705,11 @@ function handleWebSocketMessage(data) {
         case 'timer_ended':
             timer.value = 0;
             timerRunning.value = false;
+            break;
+        case 'resolution_submitted':
+        case 'resolution_reviewed':
+        case 'working_draft_selected':
+            fetchResolutions();
             break;
     }
 }

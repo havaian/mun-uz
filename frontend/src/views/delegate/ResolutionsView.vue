@@ -3,30 +3,15 @@
         <header class="mb-8">
             <div class="flex items-center justify-between">
                 <h1 class="text-3xl font-bold text-gray-900">Resolutions</h1>
-                <button @click="showCreateModal = true" class="btn btn-primary" :disabled="isSubmitting">
+                <button @click="showCreateModal = true" class="btn btn-primary" :disabled="!activeSession?.quorum">
                     Submit Resolution
                 </button>
             </div>
         </header>
 
-        <!-- Committee Status -->
-        <div v-if="committee" class="card mb-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-lg font-medium text-gray-900">Committee Status</h2>
-                    <p class="mt-1 text-sm" :class="committee.status === 'active' ? 'text-green-600' : 'text-gray-500'">
-                        {{ committeStatusText }}
-                    </p>
-                </div>
-                <span :class="[
-                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                    committee.status === 'active' ? 'bg-green-100 text-green-800' :
-                        committee.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                            'bg-yellow-100 text-yellow-800'
-                ]">
-                    {{ committee.status }}
-                </span>
-            </div>
+        <!-- Active Session Status -->
+        <div v-if="!activeSession" class="card mb-8 text-center py-6">
+            <p class="text-gray-500">No active session</p>
         </div>
 
         <!-- Working Draft -->
@@ -42,104 +27,71 @@
                 </span>
             </div>
             <div class="mt-4">
-                <p class="whitespace-pre-wrap text-sm text-gray-700">{{ workingDraft.content }}</p>
+                <p v-if="workingDraft.documentUrl" class="text-sm text-gray-700">
+                    <a :href="workingDraft.documentUrl" target="_blank" rel="noopener noreferrer"
+                        class="text-un-blue hover:underline flex items-center">
+                        <DocumentIcon class="h-5 w-5 mr-2" />View Google Document
+                        <ArrowTopRightOnSquareIcon class="h-4 w-4 ml-1" />
+                    </a>
+                </p>
+                <p v-else class="text-sm text-gray-700">{{ workingDraft.content }}</p>
             </div>
             <div class="mt-4">
                 <p class="text-sm text-gray-500">
                     Authors: {{ workingDraft.authors.join(', ') }}
                 </p>
             </div>
-            <div class="mt-4">
-                <button @click="viewResolutionDetails(workingDraft)" class="text-sm text-un-blue hover:text-blue-700">
-                    View Full Resolution
-                </button>
-            </div>
         </div>
 
         <!-- Resolutions List -->
         <div class="space-y-6">
-            <h2 class="text-xl font-semibold text-gray-900">My Resolutions</h2>
-            <div v-if="myResolutions.length === 0" class="card text-center py-8">
-                <p class="text-gray-500">You haven't submitted any resolutions yet.</p>
-            </div>
-            <div v-else class="space-y-4">
-                <div v-for="resolution in myResolutions" :key="resolution._id" class="card">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900">{{ resolution.title }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                Authors: {{ resolution.authors.join(', ') }}
-                            </p>
-                        </div>
-                        <span :class="[
-                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                            resolution.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                resolution.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                    'bg-yellow-100 text-yellow-800'
-                        ]">
-                            {{ formatStatus(resolution.status) }}
-                        </span>
-                    </div>
-
-                    <div class="mt-4">
-                        <p class="line-clamp-3 text-sm text-gray-700">{{ resolution.content }}</p>
-                    </div>
-
-                    <div v-if="resolution.reviewComments" class="mt-4">
-                        <p class="text-sm text-gray-600">
-                            <span class="font-medium">Review Comments:</span>
-                            {{ resolution.reviewComments }}
+            <div v-for="resolution in resolutions" :key="resolution._id" class="card">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">{{ resolution.title }}</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Authors: {{ resolution.authors.join(', ') }}
                         </p>
                     </div>
+                    <span :class="[
+                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        resolution.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                            resolution.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                    ]">
+                        {{ resolution.status }}
+                    </span>
+                </div>
 
-                    <div class="mt-4">
-                        <button @click="viewResolutionDetails(resolution)"
-                            class="text-sm text-un-blue hover:text-blue-700">
-                            View Full Resolution
-                        </button>
-                    </div>
+                <div class="mt-4">
+                    <p v-if="resolution.documentUrl" class="text-sm text-gray-700">
+                        <a :href="resolution.documentUrl" target="_blank" rel="noopener noreferrer"
+                            class="text-un-blue hover:underline flex items-center">
+                            <DocumentIcon class="h-5 w-5 mr-2" />View Google Document
+                            <ArrowTopRightOnSquareIcon class="h-4 w-4 ml-1" />
+                        </a>
+                    </p>
+                    <p v-else class="text-sm text-gray-700">{{ resolution.content }}</p>
+                </div>
+
+                <div v-if="resolution.reviewComments" class="mt-4">
+                    <p class="text-sm text-gray-600">
+                        <span class="font-medium">Review Comments:</span>
+                        {{ resolution.reviewComments }}
+                    </p>
+                </div>
+
+                <div class="mt-6 flex items-center space-x-4">
+                    <button
+                        v-if="resolution.status === 'draft' && !resolution.authors.includes(authStore.user.countryName)"
+                        @click="confirmCoAuthorship(resolution)" class="text-sm text-un-blue hover:text-blue-700">
+                        Confirm Co-Authorship
+                    </button>
                 </div>
             </div>
 
-            <h2 class="text-xl font-semibold text-gray-900 mt-8">Other Resolutions</h2>
-            <div v-if="otherResolutions.length === 0" class="card text-center py-8">
-                <p class="text-gray-500">No other resolutions submitted yet.</p>
-            </div>
-            <div v-else class="space-y-4">
-                <div v-for="resolution in otherResolutions" :key="resolution._id" class="card">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h3 class="text-lg font-medium text-gray-900">{{ resolution.title }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                Authors: {{ resolution.authors.join(', ') }}
-                            </p>
-                        </div>
-                        <span :class="[
-                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                            resolution.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                resolution.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                    'bg-yellow-100 text-yellow-800'
-                        ]">
-                            {{ formatStatus(resolution.status) }}
-                        </span>
-                    </div>
-
-                    <div class="mt-4">
-                        <p class="line-clamp-3 text-sm text-gray-700">{{ resolution.content }}</p>
-                    </div>
-
-                    <div class="mt-6 flex items-center space-x-4">
-                        <button @click="viewResolutionDetails(resolution)"
-                            class="text-sm text-un-blue hover:text-blue-700">
-                            View Full Resolution
-                        </button>
-                        <button
-                            v-if="resolution.status === 'draft' && !resolution.authors.includes(authStore.user.countryName)"
-                            @click="confirmCoAuthorship(resolution)" class="text-sm text-un-blue hover:text-blue-700">
-                            Confirm Co-Authorship
-                        </button>
-                    </div>
-                </div>
+            <div v-if="resolutions.length === 0" class="text-center py-12 text-gray-500">
+                No resolutions submitted yet
             </div>
         </div>
 
@@ -164,21 +116,29 @@
 
                                 <form @submit.prevent="handleSubmit" class="mt-4 space-y-4">
                                     <div>
-                                        <label for="title" class="form-label">Title</label>
+                                        <label for="title" class="form-label">Resolution Title</label>
                                         <input id="title" v-model="form.title" type="text" class="form-input"
                                             required />
-                                        <p v-if="validationErrors.title" class="text-red-500 text-sm mt-1">
-                                            {{ validationErrors.title }}
-                                        </p>
                                     </div>
 
                                     <div>
-                                        <label for="content" class="form-label">Content</label>
-                                        <textarea id="content" v-model="form.content" rows="10" class="form-input"
-                                            required></textarea>
-                                        <p v-if="validationErrors.content" class="text-red-500 text-sm mt-1">
-                                            {{ validationErrors.content }}
+                                        <label for="documentUrl" class="form-label">Google Docs Link</label>
+                                        <div class="mt-1 relative rounded-md shadow-sm">
+                                            <div
+                                                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                                <DocumentIcon class="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                            </div>
+                                            <input id="documentUrl" v-model="form.documentUrl" type="url"
+                                                class="form-input pl-10"
+                                                placeholder="https://docs.google.com/document/d/..." required />
+                                        </div>
+                                        <p class="mt-2 text-sm text-gray-500">
+                                            Please provide a link to a Google Document containing your resolution. Make
+                                            sure the document is shared with view access.
                                         </p>
+                                        <div v-if="urlError" class="mt-2 text-sm text-red-600">
+                                            {{ urlError }}
+                                        </div>
                                     </div>
 
                                     <div>
@@ -199,13 +159,10 @@
                                         <p v-if="committee?.minResolutionAuthors" class="mt-2 text-sm text-gray-500">
                                             Minimum {{ committee.minResolutionAuthors }} authors required
                                         </p>
-                                        <p v-if="validationErrors.authors" class="text-red-500 text-sm mt-1">
-                                            {{ validationErrors.authors }}
-                                        </p>
                                     </div>
 
                                     <div class="mt-6 flex justify-end space-x-3">
-                                        <button type="button" class="btn btn-outline" @click="cancelResolutionForm">
+                                        <button type="button" class="btn btn-outline" @click="showCreateModal = false">
                                             Cancel
                                         </button>
                                         <button type="submit" class="btn btn-primary" :disabled="submitting">
@@ -219,156 +176,54 @@
                 </div>
             </Dialog>
         </TransitionRoot>
-
-        <!-- Resolution Details Modal -->
-        <TransitionRoot appear :show="showDetailsModal" as="template">
-            <Dialog as="div" class="relative z-10" @close="showDetailsModal = false">
-                <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0"
-                    enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
-                    <div class="fixed inset-0 bg-black bg-opacity-25" />
-                </TransitionChild>
-
-                <div class="fixed inset-0 overflow-y-auto">
-                    <div class="flex min-h-full items-center justify-center p-4 text-center">
-                        <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0 scale-95"
-                            enter-to="opacity-100 scale-100" leave="duration-200 ease-in"
-                            leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
-                            <DialogPanel
-                                class="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                                <DialogTitle as="h3"
-                                    class="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center">
-                                    <span>{{ selectedResolution?.title }}</span>
-                                    <span :class="[
-                                        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                                        selectedResolution?.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                                            selectedResolution?.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                'bg-yellow-100 text-yellow-800'
-                                    ]">
-                                        {{ formatStatus(selectedResolution?.status) }}
-                                    </span>
-                                </DialogTitle>
-
-                                <div class="mt-4 space-y-4">
-                                    <div>
-                                        <h4 class="text-sm font-medium text-gray-700">Authors</h4>
-                                        <p class="mt-1 text-sm text-gray-600">
-                                            {{ selectedResolution?.authors.join(', ') }}
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <h4 class="text-sm font-medium text-gray-700">Content</h4>
-                                        <div class="mt-1 p-4 bg-gray-50 rounded-md overflow-auto max-h-96">
-                                            <p class="text-sm text-gray-800 whitespace-pre-wrap">{{
-                                                selectedResolution?.content }}</p>
-                                        </div>
-                                    </div>
-
-                                    <div v-if="selectedResolution?.reviewComments">
-                                        <h4 class="text-sm font-medium text-gray-700">Review Comments</h4>
-                                        <p class="mt-1 text-sm text-gray-600">
-                                            {{ selectedResolution.reviewComments }}
-                                        </p>
-                                    </div>
-
-                                    <div v-if="selectedResolution?.status === 'draft' && !selectedResolution.authors.includes(authStore.user.countryName)"
-                                        class="mt-6">
-                                        <button @click="confirmCoAuthorshipFromDetails()" class="btn btn-primary">
-                                            Confirm Co-Authorship
-                                        </button>
-                                    </div>
-
-                                    <div class="mt-6 flex justify-end">
-                                        <button type="button" class="btn btn-outline" @click="showDetailsModal = false">
-                                            Close
-                                        </button>
-                                    </div>
-                                </div>
-                            </DialogPanel>
-                        </TransitionChild>
-                    </div>
-                </div>
-            </Dialog>
-        </TransitionRoot>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
+import { DocumentIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import { useAuthStore } from '../../stores/auth'
-import { resolutionsService, committeesService } from '../../services/api'
+import { resolutionsService, committeesService, sessionsService } from '../../services/api'
 import { toast } from 'vue3-toastify'
 
 const authStore = useAuthStore()
 const resolutions = ref([])
 const committee = ref(null)
+const activeSession = ref(null)
 const workingDraft = ref(null)
 const showCreateModal = ref(false)
 const submitting = ref(false)
-const isSubmitting = ref(false)
-const validationErrors = ref({})
-
-// For resolution details modal
-const showDetailsModal = ref(false)
-const selectedResolution = ref(null)
+const urlError = ref('')
 
 const form = ref({
     title: '',
-    content: '',
+    documentUrl: '',
     authors: []
 })
 
 // Add current delegate as author by default
 if (authStore.user?.countryName) {
-    form.value.authors = [authStore.user.countryName]
+    form.value.authors.push(authStore.user.countryName)
 }
 
-// Computed properties to filter resolutions
-const myResolutions = computed(() => {
-    return resolutions.value.filter(r =>
-        r.authors.includes(authStore.user.countryName) && !r.isWorkingDraft
-    )
-})
-
-const otherResolutions = computed(() => {
-    return resolutions.value.filter(r =>
-        !r.authors.includes(authStore.user.countryName) && !r.isWorkingDraft
-    )
-})
-
-// Text for committee status
-const committeStatusText = computed(() => {
-    if (!committee.value) return '';
-
-    switch (committee.value.status) {
-        case 'setup': return 'Committee is in setup phase. You can submit resolutions.';
-        case 'active': return 'Committee is active. You can submit resolutions.';
-        case 'completed': return 'Committee has completed its work.';
-        default: return `Committee status: ${committee.value.status}`;
-    }
-})
-
 onMounted(async () => {
-    isSubmitting.value = true
-    try {
-        await Promise.all([
-            fetchResolutions(),
-            fetchCommitteeData()
-        ])
-    } finally {
-        isSubmitting.value = false
-    }
+    await Promise.all([
+        fetchResolutions(),
+        fetchCommitteeData(),
+        fetchActiveSession()
+    ])
 })
+
+watch(() => form.documentUrl, validateGoogleDocsUrl)
 
 async function fetchResolutions() {
     try {
-        const response = await resolutionsService.getForCommittee(authStore.user.committeeId)
+        const response = await resolutionsService.getDelegateResolutions(authStore.user.committeeId)
         resolutions.value = response.data
         workingDraft.value = response.data.find(r => r.isWorkingDraft)
     } catch (error) {
         console.error('Error fetching resolutions:', error)
-        toast.error('Failed to load resolutions')
     }
 }
 
@@ -378,40 +233,61 @@ async function fetchCommitteeData() {
         committee.value = response.data
     } catch (error) {
         console.error('Error fetching committee data:', error)
-        toast.error('Failed to load committee information')
     }
 }
 
-function validateForm() {
-    const errors = {}
+async function fetchActiveSession() {
+    try {
+        const response = await sessionsService.getActiveSessionForCommittee(authStore.user.committeeId)
+        activeSession.value = response.data
+    } catch (error) {
+        console.error('Error fetching active session:', error)
+    }
+}
 
-    // Title validation
-    if (!form.value.title.trim()) {
-        errors.title = 'Title is required'
-    } else if (form.value.title.length < 3) {
-        errors.title = 'Title must be at least 3 characters'
+function validateGoogleDocsUrl(url) {
+    if (!url) {
+        urlError.value = ''
+        return
     }
 
-    // Content validation
-    if (!form.value.content.trim()) {
-        errors.content = 'Content is required'
-    } else if (form.value.content.length < 20) {
-        errors.content = 'Content must be at least 20 characters'
-    }
+    try {
+        const parsedUrl = new URL(url)
+        // Check if it's a Google Docs URL - looking for these patterns:
+        // - docs.google.com/document/
+        // - docs.google.com/document/d/...
+        // - docs.google.com/document/u/0/d/...
+        if (!parsedUrl.hostname.includes('docs.google.com') ||
+            !parsedUrl.pathname.includes('/document/')) {
+            urlError.value = 'Please enter a valid Google Docs URL'
+            return false
+        }
 
-    // Authors validation
-    if (committee.value?.minResolutionAuthors &&
-        form.value.authors.length < committee.value.minResolutionAuthors) {
-        errors.authors = `At least ${committee.value.minResolutionAuthors} authors are required`
+        // Valid Google Docs URL
+        urlError.value = ''
+        return true
+    } catch (e) {
+        // Invalid URL format
+        urlError.value = 'Please enter a valid URL'
+        return false
     }
-
-    validationErrors.value = errors
-    return Object.keys(errors).length === 0
 }
 
 async function handleSubmit() {
-    if (!validateForm()) {
-        toast.error('Please correct the errors in the form')
+    if (!activeSession.value?.quorum) {
+        toast.error('No active session or quorum not established')
+        return
+    }
+
+    // Validate Google Docs URL
+    if (!validateGoogleDocsUrl(form.value.documentUrl)) {
+        return
+    }
+
+    // Check for minimum authors
+    if (committee.value?.minResolutionAuthors &&
+        form.value.authors.length < committee.value.minResolutionAuthors) {
+        toast.error(`At least ${committee.value.minResolutionAuthors} authors are required`)
         return
     }
 
@@ -426,7 +302,11 @@ async function handleSubmit() {
         toast.success('Resolution submitted successfully')
 
         // Reset form
-        resetForm()
+        form.value = {
+            title: '',
+            documentUrl: '',
+            authors: [authStore.user.countryName]
+        }
     } catch (error) {
         console.error('Error submitting resolution:', error)
         if (error.response?.data?.error) {
@@ -440,54 +320,12 @@ async function handleSubmit() {
 }
 
 async function confirmCoAuthorship(resolution) {
-    isSubmitting.value = true
     try {
         await resolutionsService.confirmCoAuthor(resolution._id)
         await fetchResolutions()
         toast.success('Co-authorship confirmed')
     } catch (error) {
         console.error('Error confirming co-authorship:', error)
-        toast.error('Failed to confirm co-authorship')
-    } finally {
-        isSubmitting.value = false
-    }
-}
-
-function viewResolutionDetails(resolution) {
-    selectedResolution.value = resolution
-    showDetailsModal.value = true
-}
-
-async function confirmCoAuthorshipFromDetails() {
-    if (!selectedResolution.value) return
-
-    showDetailsModal.value = false
-    await confirmCoAuthorship(selectedResolution.value)
-}
-
-function resetForm() {
-    form.value = {
-        title: '',
-        content: '',
-        authors: [authStore.user.countryName]
-    }
-    validationErrors.value = {}
-}
-
-function cancelResolutionForm() {
-    resetForm()
-    showCreateModal.value = false
-}
-
-function formatStatus(status) {
-    if (!status) return ''
-
-    switch (status) {
-        case 'draft': return 'Pending Review'
-        case 'accepted': return 'Accepted'
-        case 'rejected': return 'Rejected'
-        case 'working': return 'Working Draft'
-        default: return status.charAt(0).toUpperCase() + status.slice(1)
     }
 }
 </script>

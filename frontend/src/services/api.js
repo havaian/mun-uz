@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { toast } from 'vue3-toastify'
 
-const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:2223";
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const api = axios.create({
     baseURL: `${apiUrl}/api`,
@@ -113,7 +113,8 @@ export const resolutionsService = {
     create: data => api.post('/resolutions', data),
     review: (id, data) => api.put(`/resolutions/${id}/review`, data),
     setAsWorkingDraft: id => api.put(`/resolutions/${id}/working`),
-    confirmCoAuthor: id => api.put(`/resolutions/${id}/co-author`)
+    confirmCoAuthor: id => api.put(`/resolutions/${id}/co-author`),
+    getDelegateResolutions: committeeId => api.get(`/resolutions/committees/${committeeId}/delegate-resolutions`),
 }
 
 // Amendments services

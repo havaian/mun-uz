@@ -6,9 +6,22 @@ class ResolutionsController {
         try {
             const { committeeId } = req.params;
 
-            const resolutions = await ResolutionsModel.getResolutionsForCommittee(committeeId);
+            // Get user role from request
+            const userRole = req.user ? req.user.role : null;
 
-            return res.json(resolutions);
+            // Fetch all resolutions for the committee
+            const allResolutions = await ResolutionsModel.getResolutionsForCommittee(committeeId);
+
+            // If user is a presidium or admin, filter out 'pending_coauthors' resolutions
+            if (userRole === 'presidium' || userRole === 'admin') {
+                const filteredResolutions = allResolutions.filter(
+                    resolution => resolution.status !== 'pending_coauthors'
+                );
+                return res.json(filteredResolutions);
+            }
+
+            // Otherwise return all resolutions (for delegate view)
+            return res.json(allResolutions);
         } catch (error) {
             console.error(error);
             return res.status(500).json({ error: 'Internal Server Error' });
@@ -65,6 +78,19 @@ class ResolutionsController {
                 });
             }
 
+            // Create the list of pending co-authors (all authors except the current delegate)
+            const pendingCoAuthors = resolutionData.authors.filter(author => author !== req.user.countryName);
+
+            // If there are no co-authors, set status to draft (ready for presidium)
+            // Otherwise, set status to pending_coauthors
+            if (pendingCoAuthors.length === 0) {
+                resolutionData.status = 'draft';
+                resolutionData.pendingCoAuthors = [];
+            } else {
+                resolutionData.status = 'pending_coauthors';
+                resolutionData.pendingCoAuthors = pendingCoAuthors;
+            }
+
             // Create new resolution
             const newResolution = await ResolutionsModel.createResolution(resolutionData);
 
@@ -99,6 +125,18 @@ class ResolutionsController {
             // Check if resolution is in draft status
             if (resolution.status !== 'draft') {
                 return res.status(400).json({ error: 'Resolution is not in draft status' });
+            }
+
+            // If accepting, check if it has the minimum required authors
+            if (status === 'accepted') {
+                const committee = await CommitteesModel.getCommitteeById(resolution.committeeId);
+                if (resolution.authors.length < committee.minResolutionAuthors) {
+                    return res.status(400).json({
+                        error: `Not enough authors. At least ${committee.minResolutionAuthors} required. Currently has ${resolution.authors.length}.`,
+                        minRequired: committee.minResolutionAuthors,
+                        currentCount: resolution.authors.length
+                    });
+                }
             }
 
             // Update resolution
@@ -170,19 +208,73 @@ class ResolutionsController {
                 return res.status(403).json({ error: 'Forbidden - you can only co-author resolutions in your assigned committee' });
             }
 
-            // Check if resolution is still in draft status
-            if (resolution.status !== 'draft') {
-                return res.status(400).json({ error: 'Cannot confirm co-authorship - resolution is no longer in draft status' });
+            // Check if resolution is in pending_coauthors or draft status
+            if (resolution.status !== 'pending_coauthors' && resolution.status !== 'draft') {
+                return res.status(400).json({
+                    error: 'Cannot confirm co-authorship - resolution is not in pending co-authors or draft status'
+                });
             }
 
-            // Add the delegate's country as co-author
-            await ResolutionsModel.confirmCoAuthor(id, req.user.countryName);
+            // Check if the delegate's country is in the pendingCoAuthors list
+            if (!resolution.pendingCoAuthors || !resolution.pendingCoAuthors.includes(req.user.countryName)) {
+                return res.status(400).json({
+                    error: 'Your country is not in the pending co-authors list for this resolution'
+                });
+            }
+
+            // Remove the delegate's country from the pendingCoAuthors list
+            const updatedPendingCoAuthors = resolution.pendingCoAuthors.filter(
+                country => country !== req.user.countryName
+            );
+
+            // Update the resolution
+            const updatedData = {
+                pendingCoAuthors: updatedPendingCoAuthors
+            };
+
+            // If no more pending co-authors, change status to draft
+            if (updatedPendingCoAuthors.length === 0) {
+                updatedData.status = 'draft';
+            }
+
+            // Update the resolution in the database
+            await ResolutionsModel.updateResolution(id, updatedData);
 
             // Return the updated resolution
             const updatedResolution = await ResolutionsModel.getResolutionById(id);
             return res.json(updatedResolution);
         } catch (error) {
             console.error(error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+
+    async getDelegateResolutions(req, res) {
+        try {
+            // Check if user is a delegate
+            if (req.user.role !== 'delegate') {
+                return res.status(403).json({ error: 'Forbidden - only delegates can access their resolutions' });
+            }
+
+            const { committeeId } = req.params;
+            const { countryName } = req.user;
+
+            // Check if delegate belongs to this committee
+            if (req.user.committeeId !== committeeId) {
+                return res.status(403).json({ error: 'Forbidden - you can only access resolutions for your assigned committee' });
+            }
+
+            // Get all resolutions for this committee
+            const allResolutions = await ResolutionsModel.getResolutionsForCommittee(committeeId);
+
+            // Filter to only show resolutions where the delegate is an author
+            const delegateResolutions = allResolutions.filter(resolution =>
+                resolution.authors.includes(countryName)
+            );
+
+            return res.json(delegateResolutions);
+        } catch (error) {
+            console.error('Error getting delegate resolutions:', error);
             return res.status(500).json({ error: 'Internal Server Error' });
         }
     }

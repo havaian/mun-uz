@@ -103,4 +103,19 @@ router.put('/:id/co-author',
     }
 );
 
+router.get('/committees/:committeeId/delegate-resolutions',
+    authenticate,
+    [
+        param('committeeId').isMongoId().withMessage('Invalid committee ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await ResolutionsController.getDelegateResolutions(req, res);
+    }
+);
+
 module.exports = router;

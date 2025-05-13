@@ -20,9 +20,12 @@ const resolutionSchema = new mongoose.Schema({
     }],
     status: {
         type: String,
-        enum: ['draft', 'reviewed', 'accepted', 'rejected', 'working'],
-        default: 'draft'
+        enum: ['pending_coauthors', 'draft', 'reviewed', 'accepted', 'rejected', 'working'],
+        default: 'pending_coauthors' // Change default to pending_coauthors
     },
+    pendingCoAuthors: [{
+        type: String
+    }],
     submissionTime: {
         type: Date,
         default: Date.now

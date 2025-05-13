@@ -13,9 +13,6 @@
         <div v-if="!activeSession" class="card mb-8 text-center py-6">
             <p class="text-gray-500">No active session</p>
         </div>
-        <div v-else-if="!activeSession.quorum" class="card mb-8 text-center py-6">
-            <p class="text-gray-500">Quorum not established</p>
-        </div>
         <div v-else-if="!workingDraft" class="card mb-8 text-center py-6">
             <p class="text-gray-500">No working draft resolution available</p>
         </div>
