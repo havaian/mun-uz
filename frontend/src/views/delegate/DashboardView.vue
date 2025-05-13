@@ -48,8 +48,7 @@
                 <!-- Fixed header to match structure with Active Voting section -->
                 <div class="flex items-center justify-between h-10"> <!-- Added fixed height -->
                     <h2 class="text-xl font-semibold text-gray-900">Resolutions</h2>
-                    <button @click="showResolutionModal = true" class="btn btn-primary"
-                        :disabled="!activeSession || !activeSession.quorum">
+                    <button @click="showResolutionModal = true" class="btn btn-primary">
                         Submit Resolution
                     </button>
                 </div>
@@ -249,6 +248,7 @@ const hasVoted = computed(() => {
 })
 
 onMounted(async () => {
+    console.log("Dashboard component mounted - loading data");
     await Promise.all([
         fetchCommitteeData(),
         fetchResolutions()
@@ -264,8 +264,10 @@ onBeforeUnmount(() => {
 
 async function fetchCommitteeData() {
     try {
+        console.log("Fetching committee data");
         const response = await committeesService.getById(authStore.user.committeeId)
         committee.value = response.data
+        console.log("Committee data loaded:", committee.value);
     } catch (error) {
         console.error('Error fetching committee data:', error)
     }
@@ -273,28 +275,44 @@ async function fetchCommitteeData() {
 
 async function fetchResolutions() {
     try {
+        console.log("Fetching resolutions data");
         const response = await resolutionsService.getForCommittee(authStore.user.committeeId)
         resolutions.value = response.data
+        console.log("Resolutions data loaded, count:", resolutions.value.length);
     } catch (error) {
         console.error('Error fetching resolutions:', error)
     }
 }
 
-// Define viewResolution function which was called but not implemented
 function viewResolution(resolution) {
     // This function would typically open a modal or navigate to a detail view
-    // Placeholder implementation
+    console.log("Viewing resolution:", resolution.title);
     toast.info(`Viewing resolution: ${resolution.title}`)
-    // Alternatively, you could set a state variable to show a detail modal
+    // You could redirect to the resolutions page with this resolution highlighted
+    // router.push(`/delegate/resolutions?highlight=${resolution._id}`);
 }
 
 async function submitResolution() {
+    if (!resolutionForm.value.title.trim() || !resolutionForm.value.content.trim()) {
+        toast.error('Please fill in all required fields');
+        return;
+    }
+
+    if (committee.value?.minResolutionAuthors &&
+        resolutionForm.value.authors.length < committee.value.minResolutionAuthors) {
+        toast.error(`At least ${committee.value.minResolutionAuthors} authors are required`);
+        return;
+    }
+
     submitting.value = true
     try {
+        console.log("Submitting resolution");
         const response = await resolutionsService.create({
             committeeId: authStore.user.committeeId,
             ...resolutionForm.value
         })
+
+        // Add to local list
         resolutions.value.unshift(response.data)
         showResolutionModal.value = false
         toast.success('Resolution submitted successfully')
@@ -307,6 +325,11 @@ async function submitResolution() {
         }
     } catch (error) {
         console.error('Error submitting resolution:', error)
+        if (error.response?.data?.error) {
+            toast.error(error.response.data.error)
+        } else {
+            toast.error('Failed to submit resolution')
+        }
     } finally {
         submitting.value = false
     }
@@ -319,6 +342,7 @@ async function confirmCoAuthorship(resolution) {
         toast.success('Co-authorship confirmed')
     } catch (error) {
         console.error('Error confirming co-authorship:', error)
+        toast.error('Failed to confirm co-authorship')
     }
 }
 
@@ -331,12 +355,15 @@ async function submitVote(vote) {
         toast.success('Vote submitted successfully')
     } catch (error) {
         console.error('Error submitting vote:', error)
+        toast.error('Failed to submit vote')
     } finally {
         voting.value = false
     }
 }
 
 function formatMode(mode) {
+    if (!mode) return 'Unknown';
+
     return mode
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -363,41 +390,78 @@ function getVotingTitle(voting) {
 }
 
 function initializeWebSocket() {
-    const ws = createWebSocket(authStore.user.committeeId)
-    if (!ws) return
+    console.log("Initializing WebSocket connection");
+    try {
+        const ws = createWebSocket(authStore.user.committeeId)
+        if (!ws) {
+            console.log("Could not create WebSocket connection");
+            return;
+        }
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        handleWebSocketMessage(data)
+        ws.onopen = () => {
+            console.log("WebSocket connection established");
+        }
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data)
+                console.log("WebSocket message received:", data.type);
+                handleWebSocketMessage(data)
+            } catch (error) {
+                console.error("Error processing WebSocket message:", error);
+            }
+        }
+
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        }
+
+        ws.onclose = () => {
+            console.log("WebSocket connection closed");
+        }
+    } catch (error) {
+        console.error("Error setting up WebSocket:", error);
     }
 }
 
 function handleWebSocketMessage(data) {
-    switch (data.type) {
-        case 'session_updated':
-            activeSession.value = data.session
-            break
-        case 'timer_started':
-            timer.value = data.duration
-            if (timerInterval.value) clearInterval(timerInterval.value)
-            timerInterval.value = setInterval(() => {
-                if (timer.value > 0) timer.value--
-                else clearInterval(timerInterval.value)
-            }, 1000)
-            break
-        case 'timer_ended':
-            timer.value = 0
-            if (timerInterval.value) clearInterval(timerInterval.value)
-            break
-        case 'voting_started':
-            activeVoting.value = data.voting
-            break
-        case 'voting_results':
-            activeVoting.value = null
-            break
-        case 'resolution_submitted':
-            fetchResolutions()
-            break
+    try {
+        switch (data.type) {
+            case 'session_updated':
+                console.log("Session updated:", data.session);
+                activeSession.value = data.session
+                break
+            case 'timer_started':
+                console.log("Timer started:", data.duration);
+                timer.value = data.duration
+                if (timerInterval.value) clearInterval(timerInterval.value)
+                timerInterval.value = setInterval(() => {
+                    if (timer.value > 0) timer.value--
+                    else clearInterval(timerInterval.value)
+                }, 1000)
+                break
+            case 'timer_ended':
+                console.log("Timer ended");
+                timer.value = 0
+                if (timerInterval.value) clearInterval(timerInterval.value)
+                break
+            case 'voting_started':
+                console.log("Voting started:", data.voting);
+                activeVoting.value = data.voting
+                break
+            case 'voting_results':
+                console.log("Voting results:", data);
+                activeVoting.value = null
+                break
+            case 'resolution_submitted':
+                console.log("Resolution submitted, refreshing list");
+                fetchResolutions()
+                break
+            default:
+                console.log("Unknown message type:", data.type);
+        }
+    } catch (error) {
+        console.error("Error handling WebSocket message:", error);
     }
 }
 </script>
