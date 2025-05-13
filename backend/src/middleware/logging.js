@@ -86,12 +86,12 @@ const logFormat = [
     ':status',
     ':response-time ms',
     'IP: :remote-addr',
-    'User Agent: :user-agent',
-    'Request Headers: :req-headers',
-    'Request Body: :req-body',
-    'Response Headers: :res-headers',
-    'Response Body: :res-body',
-    'File: :file-info'
+    // 'User Agent: :user-agent',
+    // 'Request Headers: :req-headers',
+    // 'Request Body: :req-body',
+    // 'Response Headers: :res-headers',
+    // 'Response Body: :res-body',
+    // 'File: :file-info'
 ].join(' | ');
 
 // Response body capturing middleware
