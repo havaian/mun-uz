@@ -24,54 +24,69 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function login(credentials) {
         try {
-            const response = await authService.login(credentials)
-            setAuthData(response.data)
-            return response.data
+            let response;
+
+            // Check what kind of login we're performing based on the credentials provided
+            if ('token' in credentials) {
+                // Token-based login (could be either presidium or delegate)
+                // Try delegate auth first
+                try {
+                    response = await authService.delegateAuth(credentials.token);
+                } catch (delegateError) {
+                    // If delegate auth fails, try the presidium/admin token login
+                    // This would need a new endpoint or parameter to distinguish it from delegate tokens
+                    response = await authService.login({ tokenAuth: true, token: credentials.token });
+                }
+            } else {
+                // Standard username/password login
+                response = await authService.login(credentials);
+            }
+
+            // Set auth data regardless of login method
+            setAuthData(response.data);
+            return response.data;
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Login failed')
-            throw error
+            toast.error(error.response?.data?.error || 'Login failed');
+            throw error;
         }
     }
 
     async function delegateAuth(token) {
         try {
-            const response = await authService.delegateAuth(token)
+            const response = await authService.delegateAuth(token);
 
             // Set auth data
-            this.token = response.data.token
-            this.user = response.data.user
-            localStorage.setItem('token', response.data.token)
-            localStorage.setItem('user', JSON.stringify(response.data.user))
+            setAuthData(response.data);
 
-            return response.data
+            return response.data;
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Authentication failed')
-            throw error
+            toast.error(error.response?.data?.error || 'Authentication failed');
+            throw error;
         }
     }
 
     async function logout() {
         try {
-            await authService.logout()
+            await authService.logout();
         } catch (error) {
-            console.error('Logout error:', error)
+            console.error('Logout error:', error);
         } finally {
-            clearAuthData()
+            clearAuthData();
         }
     }
 
     function setAuthData(data) {
-        token.value = data.token
-        user.value = data.user
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
+        token.value = data.token;
+        user.value = data.user;
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
     }
 
     function clearAuthData() {
-        token.value = null
-        user.value = null
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        token.value = null;
+        user.value = null;
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
     }
 
     return {

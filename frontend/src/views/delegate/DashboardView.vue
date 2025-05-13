@@ -45,7 +45,8 @@
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <!-- Resolutions -->
             <div class="space-y-6">
-                <div class="flex items-center justify-between">
+                <!-- Fixed header to match structure with Active Voting section -->
+                <div class="flex items-center justify-between h-10"> <!-- Added fixed height -->
                     <h2 class="text-xl font-semibold text-gray-900">Resolutions</h2>
                     <button @click="showResolutionModal = true" class="btn btn-primary"
                         :disabled="!activeSession || !activeSession.quorum">
@@ -94,7 +95,12 @@
 
             <!-- Active Voting -->
             <div class="space-y-6">
-                <h2 class="text-xl font-semibold text-gray-900">Active Voting</h2>
+                <!-- Matched structure to Resolutions header -->
+                <div class="flex items-center justify-between h-10"> <!-- Added fixed height -->
+                    <h2 class="text-xl font-semibold text-gray-900">Active Voting</h2>
+                    <!-- Empty div to maintain layout even without a button -->
+                    <div></div>
+                </div>
 
                 <div v-if="activeVoting" class="card">
                     <div class="mb-4">
@@ -272,6 +278,14 @@ async function fetchResolutions() {
     } catch (error) {
         console.error('Error fetching resolutions:', error)
     }
+}
+
+// Define viewResolution function which was called but not implemented
+function viewResolution(resolution) {
+    // This function would typically open a modal or navigate to a detail view
+    // Placeholder implementation
+    toast.info(`Viewing resolution: ${resolution.title}`)
+    // Alternatively, you could set a state variable to show a detail modal
 }
 
 async function submitResolution() {

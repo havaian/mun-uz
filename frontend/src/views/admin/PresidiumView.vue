@@ -45,10 +45,16 @@
                             Assigned to: {{ getCommitteeName(member.committeeId) }}
                         </p>
                     </div>
-                    <button @click="() => handleRemovePresidium(member)"
-                        class="text-sm text-red-600 hover:text-red-700">
-                        Remove
-                    </button>
+                    <div class="flex space-x-4">
+                        <button @click="() => generateQRCode(member.username)"
+                            class="text-sm text-un-blue hover:text-blue-700">
+                            Generate QR Code
+                        </button>
+                        <button @click="() => handleRemovePresidium(member)"
+                            class="text-sm text-red-600 hover:text-red-700">
+                            Remove
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,6 +109,9 @@
             </Dialog>
         </TransitionRoot>
 
+        <!-- QR Code Modal -->
+        <QRCodeModal :isOpen="showQRModal" :username="selectedUsername" @close="showQRModal = false" />
+
         <!-- Confirmation Modal -->
         <TransitionRoot appear :show="showConfirmModal" as="template">
             <Dialog as="div" class="relative z-10" @close="showConfirmModal = false">
@@ -153,6 +162,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import { committeesService } from '../../services/api'
 import { toast } from 'vue3-toastify'
+import QRCodeModal from '../../components/QRCodeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -162,11 +172,13 @@ const presidiumMembers = ref([])
 const selectedCommitteeId = ref('')
 const selectedCommittee = ref(null)
 const memberToRemove = ref(null)
-const loading = ref(false) // Changed from true to false initially
+const loading = ref(false)
 const formLoading = ref(false)
 const confirmLoading = ref(false)
 const showCreateModal = ref(false)
 const showConfirmModal = ref(false)
+const showQRModal = ref(false)
+const selectedUsername = ref('')
 
 const form = ref({
     username: '',
@@ -233,6 +245,11 @@ function handleCommitteeChange() {
 function getCommitteeName(committeeId) {
     const committee = committees.value.find(c => c._id === committeeId)
     return committee ? committee.name : 'Unknown Committee'
+}
+
+function generateQRCode(username) {
+    selectedUsername.value = username
+    showQRModal.value = true
 }
 
 async function handleSubmit() {

@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineProps, defineEmits } from 'vue'
+import { ref, onMounted, defineProps, defineEmits, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue'
 import QrcodeVue from 'qrcode.vue'
 import { authService } from '../services/api'
@@ -71,8 +71,16 @@ const error = ref('')
 const qrData = ref('')
 const userData = ref({})
 
-onMounted(async () => {
-    if (props.isOpen && props.username) {
+// Watch for changes in the isOpen prop
+watch(() => props.isOpen, async (newValue) => {
+    if (newValue && props.username) {
+        await generateQRCode()
+    }
+})
+
+// Also watch for username changes when modal is open
+watch(() => props.username, async (newValue) => {
+    if (props.isOpen && newValue) {
         await generateQRCode()
     }
 })

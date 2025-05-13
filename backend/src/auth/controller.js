@@ -191,6 +191,42 @@ class AuthController {
             return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
+
+    async tokenLogin(req, res) {
+        const { token } = req.body;
+
+        try {
+            // Find user by token (for presidium/admin)
+            const user = await AuthModel.findUserByToken(token);
+
+            // Check if user exists and is admin or presidium
+            if (!user || (user.role !== 'admin' && user.role !== 'presidium')) {
+                return res.status(401).json({ error: 'Invalid token' });
+            }
+
+            // Generate JWT token for session
+            const jwtToken = jwt.sign({
+                id: user._id,
+                username: user.username,
+                committeeId: user.committeeId,
+                role: user.role,
+            }, process.env.JWT_SECRET);
+
+            // Return the token and user information
+            return res.json({
+                token: jwtToken,
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    committeeId: user.committeeId,
+                    role: user.role,
+                }
+            });
+        } catch (error) {
+            console.error('Token login error:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 }
 
 module.exports = new AuthController();

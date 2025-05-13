@@ -12,15 +12,23 @@
             <div class="mt-8">
                 <div class="flex border-b border-gray-200">
                     <button @click="activeTab = 'credentials'" :class="[
-                        'w-1/2 py-2 px-4 text-center focus:outline-none',
+                        'w-1/3 py-2 px-4 text-center focus:outline-none',
                         activeTab === 'credentials'
                             ? 'border-b-2 border-un-blue text-un-blue font-medium'
                             : 'text-gray-500 hover:text-gray-700'
                     ]">
                         Username & Password
                     </button>
+                    <button @click="activeTab = 'token'" :class="[
+                        'w-1/3 py-2 px-4 text-center focus:outline-none',
+                        activeTab === 'token'
+                            ? 'border-b-2 border-un-blue text-un-blue font-medium'
+                            : 'text-gray-500 hover:text-gray-700'
+                    ]">
+                        Token
+                    </button>
                     <button @click="activeTab = 'qrcode'" :class="[
-                        'w-1/2 py-2 px-4 text-center focus:outline-none',
+                        'w-1/3 py-2 px-4 text-center focus:outline-none',
                         activeTab === 'qrcode'
                             ? 'border-b-2 border-un-blue text-un-blue font-medium'
                             : 'text-gray-500 hover:text-gray-700'
@@ -52,6 +60,22 @@
                             </button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Token input form -->
+                <div v-else-if="activeTab === 'token'" class="mt-8 space-y-6">
+                    <div>
+                        <label for="token" class="form-label">Access Token</label>
+                        <input id="token" v-model="token" type="text" class="form-input"
+                            placeholder="Enter your access token" :disabled="loading" />
+                    </div>
+
+                    <div class="flex flex-col space-y-4">
+                        <button type="button" class="btn btn-primary w-full" @click="handleTokenSubmit"
+                            :disabled="!token || loading">
+                            {{ loading ? 'Authenticating...' : 'Submit Token' }}
+                        </button>
+                    </div>
                 </div>
 
                 <!-- QR Code scanner -->
@@ -95,6 +119,7 @@ const form = ref({
     username: '',
     password: ''
 })
+const token = ref('')
 
 // QR Code scanner
 const showScanner = ref(false)
@@ -107,6 +132,23 @@ async function handleSubmit() {
     try {
         await authStore.login(form.value)
         router.push(authStore.getDefaultRoute)
+    } finally {
+        loading.value = false
+    }
+}
+
+async function handleTokenSubmit() {
+    if (!token.value) {
+        toast.error('Please enter a token')
+        return
+    }
+
+    loading.value = true
+    try {
+        await authStore.login({ token: token.value })
+        router.push(authStore.getDefaultRoute)
+    } catch (error) {
+        toast.error('Invalid token')
     } finally {
         loading.value = false
     }
@@ -138,13 +180,19 @@ function stopScanner() {
 }
 
 async function initializeCamera() {
-    stream.value = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-    })
+    try {
+        stream.value = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' }
+        })
 
-    if (videoElement.value) {
-        videoElement.value.srcObject = stream.value
-        videoElement.value.play()
+        if (videoElement.value) {
+            videoElement.value.srcObject = stream.value
+            videoElement.value.play()
+        }
+    } catch (error) {
+        console.error('Camera access error:', error)
+        toast.error('Cannot access camera. Please check permissions or use token input instead.')
+        throw error
     }
 }
 
@@ -169,13 +217,15 @@ function startQRScanning() {
     }, 100)
 }
 
-async function handleQRCode(token) {
+async function handleQRCode(scannedToken) {
+    token.value = scannedToken // Store the token in case authentication fails and user needs to see it
     loading.value = true
     try {
-        await authStore.delegateAuth(token)
+        await authStore.login({ token: scannedToken })
         router.push(authStore.getDefaultRoute)
     } catch (error) {
         toast.error('Invalid QR code')
+        activeTab.value = 'token' // Switch to token tab so user can see the scanned token
     } finally {
         loading.value = false
     }

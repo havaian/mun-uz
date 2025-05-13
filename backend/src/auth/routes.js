@@ -24,6 +24,20 @@ router.get('/token/:username', authenticate, async (req, res) => {
     await AuthController.generateAdminToken(req, res);
 });
 
+router.post('/token-login',
+    [
+        body('token').notEmpty().withMessage('Token is required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await AuthController.tokenLogin(req, res);
+    }
+);
+
 // Login route for delegates (via token)
 router.post('/delegate',
     [

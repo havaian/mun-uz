@@ -50,9 +50,24 @@ api.interceptors.response.use(
 
 // Auth services
 export const authService = {
-    login: credentials => api.post('/auth/login', credentials),
+    // Regular authentication endpoints
+    login: credentials => {
+        // Check if this is a token-based authentication
+        if (credentials.tokenAuth) {
+            // For admin/presidium token authentication
+            return api.post('/auth/token-login', { token: credentials.token });
+        }
+        // Regular username/password login
+        return api.post('/auth/login', credentials);
+    },
+    
+    // Delegate authentication using token
     delegateAuth: token => api.post('/auth/delegate', { token }),
+    
+    // Logout endpoint
     logout: () => api.post('/auth/logout'),
+    
+    // Generate token for QR code
     generateToken: username => api.get(`/auth/token/${username}`),
 }
 
@@ -85,7 +100,7 @@ export const committeesService = {
 export const sessionsService = {
     getForCommittee: committeeId => api.get(`/sessions/committee/${committeeId}`),
     getById: id => api.get(`/sessions/${id}`),
-    create: (committeeId, data) => api.post(`/committees/${committeeId}/sessions`, data),
+    create: (committeeId, data) => api.post(`/sessions/committees/${committeeId}/sessions`, data),
     updateMode: (id, mode) => api.put(`/sessions/${id}/mode`, { mode }),
     updateRollCall: (id, presentCountries) => api.put(`/sessions/${id}/roll-call`, { presentCountries }),
     complete: id => api.put(`/sessions/${id}/complete`)
