@@ -6,6 +6,7 @@ const http = require('http');
 require('dotenv').config();
 const { connectToDatabase } = require('./db');
 const websocketService = require('./src/websocket/service');
+const setupLogging = require('./src/middleware/logging');
 
 // Create Express app
 const app = express();
@@ -33,6 +34,9 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
+// Setup request logging
+setupLogging(app);
+
 // Serve static files
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
@@ -50,8 +54,12 @@ app.use('/api/votings', require('./src/votings/routes'));
 app.use('/api/statistics', require('./src/statistics/routes'));
 app.use('/api/countries', require('./src/countries/routes'));
 
-// Health check route
+// Health check routes - add both paths for compatibility
 app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date() });
+});
+
+app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: new Date() });
 });
 
