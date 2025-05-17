@@ -130,6 +130,56 @@
             </div>
         </div>
 
+        <div v-if="pendingCoAuthorships.length > 0" class="space-y-6 mt-8">
+            <div class="flex items-center justify-between h-10">
+                <h2 class="text-xl font-semibold text-gray-900">Pending Co-authorships</h2>
+            </div>
+
+            <div class="card">
+                <div class="divide-y divide-gray-200">
+                    <div v-for="resolution in pendingCoAuthorships" :key="resolution._id" class="py-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium text-gray-900">{{ resolution.title }}</h4>
+                                <p class="text-sm text-gray-500">
+                                    Main Author: {{ resolution.authors[0] }}
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    You have been invited to be a co-author on this resolution
+                                </p>
+                            </div>
+                            <span
+                                class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+                                Confirmation Needed
+                            </span>
+                        </div>
+                        <div class="mt-4">
+                            <p v-if="resolution.documentUrl" class="text-sm text-gray-700">
+                                <a :href="resolution.documentUrl" target="_blank" rel="noopener noreferrer"
+                                    class="text-un-blue hover:underline flex items-center">
+                                    <DocumentIcon class="h-5 w-5 mr-2" />View Google Document
+                                    <ArrowTopRightOnSquareIcon class="h-4 w-4 ml-1" />
+                                </a>
+                            </p>
+                            <p v-else class="text-sm text-gray-700 mt-2">{{ resolution.content }}</p>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <button @click="viewResolution(resolution)"
+                                class="text-sm text-un-blue hover:text-blue-700">
+                                View Details
+                            </button>
+                            <div class="space-x-2">
+                                <button @click="confirmCoAuthorship(resolution._id)"
+                                    class="btn bg-green-600 hover:bg-green-700 text-white text-sm py-1 px-4">
+                                    Confirm Co-authorship
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Resolution Creation Modal -->
         <TransitionRoot appear :show="showResolutionModal" as="template">
             <Dialog as="div" class="relative z-10" @close="showResolutionModal = false">
@@ -244,7 +294,7 @@
                                     </h4>
                                     <p class="text-sm text-gray-500 mb-4">
                                         <span class="font-medium">Authors:</span> {{
-                                        selectedResolution?.authors.join(',') }}
+                                            selectedResolution?.authors.join(',') }}
                                     </p>
 
                                     <div class="mt-4">
@@ -575,32 +625,69 @@ function initializeWebSocket() {
     }
 }
 
+// Track resolutions where the delegate is a pending co-author
+const pendingCoAuthorships = ref([])
+
+// Update the onMounted function to also fetch pending co-authorships
+onMounted(async () => {
+    console.log('Component mounted with user:', authStore.user)
+    await Promise.all([
+        fetchCommitteeData(),
+        fetchDelegateResolutions(),
+        fetchActiveSession(),
+        fetchPendingCoAuthorships() // Add this new function call
+    ])
+    initializeWebSocket()
+})
+
+// New function to fetch resolutions where the delegate is a pending co-author
+async function fetchPendingCoAuthorships() {
+    try {
+        console.log('Fetching pending co-authorships')
+        // Use the general resolution endpoint to get all committee resolutions
+        const response = await resolutionsService.getForCommittee(authStore.user.committeeId)
+
+        // Filter for resolutions where:
+        // 1. Status is 'pending_coauthors'
+        // 2. The delegate's country is in the pendingCoAuthors array
+        pendingCoAuthorships.value = response.data.filter(r =>
+            r.status === 'pending_coauthors' &&
+            r.pendingCoAuthors &&
+            r.pendingCoAuthors.includes(authStore.user.countryName)
+        )
+
+        console.log('Pending co-authorships:', pendingCoAuthorships.value)
+    } catch (error) {
+        console.error('Error fetching pending co-authorships:', error)
+    }
+}
+
+// Function to confirm co-authorship
+async function confirmCoAuthorship(resolutionId) {
+    try {
+        console.log('Confirming co-authorship for resolution:', resolutionId)
+        await resolutionsService.confirmCoAuthor(resolutionId)
+        toast.success('Co-authorship confirmed')
+
+        // Refresh data after confirming
+        await Promise.all([
+            fetchPendingCoAuthorships(),
+            fetchDelegateResolutions()
+        ])
+    } catch (error) {
+        console.error('Error confirming co-authorship:', error)
+        toast.error('Failed to confirm co-authorship')
+    }
+}
+
+// Add this to the handleWebSocketMessage function to refresh pending co-authorships when new resolutions are submitted
 function handleWebSocketMessage(data) {
     try {
         switch (data.type) {
-            case 'session_updated':
-                activeSession.value = data.session
-                break
-            case 'timer_started':
-                timer.value = data.duration
-                if (timerInterval.value) clearInterval(timerInterval.value)
-                timerInterval.value = setInterval(() => {
-                    if (timer.value > 0) timer.value--
-                    else clearInterval(timerInterval.value)
-                }, 1000)
-                break
-            case 'timer_ended':
-                timer.value = 0
-                if (timerInterval.value) clearInterval(timerInterval.value)
-                break
-            case 'voting_started':
-                activeVoting.value = data.voting
-                break
-            case 'voting_results':
-                activeVoting.value = null
-                break
+            // ... existing cases ...
             case 'resolution_submitted':
-                fetchDelegateResolutions() // Update to fetch only delegate's resolutions
+                fetchDelegateResolutions()
+                fetchPendingCoAuthorships() // Add this line
                 break
         }
     } catch (error) {

@@ -57,9 +57,19 @@
                         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
                         resolution.status === 'accepted' ? 'bg-green-100 text-green-800' :
                             resolution.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
+                                resolution.status === 'pending_coauthors' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-yellow-100 text-yellow-800'
                     ]">
-                        {{ resolution.status }}
+                        {{ resolution.status === 'pending_coauthors' ? 'Awaiting Co-authors' : resolution.status }}
+                    </span>
+                </div>
+
+                <div v-if="resolution.status === 'pending_coauthors'" class="mt-2 text-xs text-gray-500">
+                    <span v-if="isMainAuthor(resolution)">
+                        Waiting for co-authors to confirm: {{ resolution.pendingCoAuthors.join(', ') }}
+                    </span>
+                    <span v-else-if="isPendingCoAuthor(resolution)" class="text-purple-600 font-medium">
+                        You are invited to co-author this resolution
                     </span>
                 </div>
 
@@ -82,9 +92,9 @@
                 </div>
 
                 <div class="mt-6 flex items-center space-x-4">
-                    <button
-                        v-if="resolution.status === 'draft' && !resolution.authors.includes(authStore.user.countryName)"
-                        @click="confirmCoAuthorship(resolution)" class="text-sm text-un-blue hover:text-blue-700">
+
+                    <button v-if="isPendingCoAuthor(resolution)" @click="confirmCoAuthorship(resolution)"
+                        class="btn bg-green-600 hover:bg-green-700 text-white text-sm py-1">
                         Confirm Co-Authorship
                     </button>
                 </div>
@@ -319,13 +329,41 @@ async function handleSubmit() {
     }
 }
 
+// Filter for resolutions with pending co-authors
+const hasPendingCoAuthors = computed(() => {
+    return resolution => {
+        return resolution.status === 'pending_coauthors' &&
+            resolution.pendingCoAuthors &&
+            resolution.pendingCoAuthors.length > 0;
+    };
+});
+
+// Check if the current delegate is a pending co-author for a resolution
+const isPendingCoAuthor = computed(() => {
+    return resolution => {
+        return resolution.status === 'pending_coauthors' &&
+            resolution.pendingCoAuthors &&
+            resolution.pendingCoAuthors.includes(authStore.user.countryName);
+    };
+});
+
+// Check if the current delegate is the main author (first in the list)
+const isMainAuthor = computed(() => {
+    return resolution => {
+        return resolution.authors && resolution.authors.length > 0 &&
+            resolution.authors[0] === authStore.user.countryName;
+    };
+});
+
+// Update the confirmCoAuthorship function to show success feedback and refresh the data
 async function confirmCoAuthorship(resolution) {
     try {
-        await resolutionsService.confirmCoAuthor(resolution._id)
-        await fetchResolutions()
-        toast.success('Co-authorship confirmed')
+        await resolutionsService.confirmCoAuthor(resolution._id);
+        await fetchResolutions();
+        toast.success('Co-authorship confirmed');
     } catch (error) {
-        console.error('Error confirming co-authorship:', error)
+        console.error('Error confirming co-authorship:', error);
+        toast.error('Failed to confirm co-authorship');
     }
 }
 </script>
