@@ -66,7 +66,7 @@
                         class="text-sm text-un-blue hover:text-blue-700">
                         Edit
                     </button>
-                    <button @click="() => generateQRCodes(committee._id)"
+                    <button @click="() => showQRGenerator(committee._id)"
                         class="text-sm text-un-blue hover:text-blue-700">
                         Generate QR Codes
                     </button>
@@ -86,6 +86,21 @@
                     </router-link>
                 </div>
             </div>
+        </div>
+
+        <!-- QR Code Generator Section -->
+        <div v-if="selectedQRCommitteeId" class="mt-8 card p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">QR Code Generation</h2>
+                <button @click="selectedQRCommitteeId = null" class="text-gray-500 hover:text-gray-700">
+                    <span class="sr-only">Close</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <QRCodeGenerator :committeeId="selectedQRCommitteeId" />
         </div>
 
         <!-- Create/Edit Committee Modal -->
@@ -207,6 +222,7 @@ import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } fro
 import { TrashIcon } from '@heroicons/vue/24/outline'
 import { committeesService, eventsService, countriesService } from '../../services/api'
 import { toast } from 'vue3-toastify'
+import QRCodeGenerator from '../../components/admin/QRCodeGenerator.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -217,8 +233,9 @@ const countries = ref([])
 const countrySearch = ref('')
 const selectedEventId = ref('')
 const selectedEvent = ref(null)
+const selectedQRCommitteeId = ref(null)
 
-const loading = ref(false) // Changed from true to false initially to avoid premature loading
+const loading = ref(false)
 const formLoading = ref(false)
 const showCreateModal = ref(false)
 const editingCommittee = ref(null)
@@ -337,6 +354,10 @@ function handleEditCommittee(committee) {
     showCreateModal.value = true
 }
 
+function showQRGenerator(committeeId) {
+    selectedQRCommitteeId.value = committeeId
+}
+
 function addCountry() {
     form.value.countries.push({
         name: '',
@@ -379,23 +400,6 @@ async function handleSubmit() {
         toast.error('Failed to save committee')
     } finally {
         formLoading.value = false
-    }
-}
-
-async function generateQRCodes(committeeId) {
-    try {
-        const response = await committeesService.generateQRCodes(committeeId)
-        const blob = new Blob([response.data], { type: 'application/pdf' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `committee_${committeeId}_qrcodes.pdf`
-        link.click()
-        window.URL.revokeObjectURL(url)
-        toast.success('QR codes generated successfully')
-    } catch (error) {
-        console.error('Error generating QR codes:', error)
-        toast.error('Failed to generate QR codes')
     }
 }
 

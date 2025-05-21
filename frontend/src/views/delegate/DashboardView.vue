@@ -130,6 +130,10 @@
             </div>
         </div>
 
+        <div class="mt-8">
+            <CoAuthorshipConfirmation />
+        </div>
+
         <div v-if="pendingCoAuthorships.length > 0" class="space-y-6 mt-8">
             <div class="flex items-center justify-between h-10">
                 <h2 class="text-xl font-semibold text-gray-900">Pending Co-authorships</h2>
@@ -348,6 +352,7 @@ import { useAuthStore } from '../../stores/auth'
 import { committeesService, resolutionsService, votingsService, sessionsService, createWebSocket } from '../../services/api'
 import { toast } from 'vue3-toastify'
 import { format } from 'date-fns'
+import CoAuthorshipConfirmation from '../../components/delegate/CoAuthorshipConfirmation.vue'
 
 const authStore = useAuthStore()
 const committee = ref(null)

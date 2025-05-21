@@ -140,7 +140,7 @@ class CommitteesController {
 
     async generateQRCodes(req, res) {
         try {
-            // Check if user is admin or presidium
+            // Check permissions
             if (req.user.role !== 'admin' && req.user.role !== 'presidium') {
                 return res.status(403).json({ error: 'Forbidden - admin or presidium access required' });
             }
@@ -153,7 +153,7 @@ class CommitteesController {
                 return res.status(404).json({ error: 'Committee not found' });
             }
 
-            // If presidium, check if they are assigned to this committee
+            // Check if presidium is assigned to this committee
             if (req.user.role === 'presidium' && req.user.committeeId !== id) {
                 return res.status(403).json({ error: 'Forbidden - you can only access your assigned committee' });
             }
@@ -161,18 +161,21 @@ class CommitteesController {
             // Generate QR codes
             const qrData = await CommitteesModel.generateQRCodes(id);
 
-            // Create PDF document with high-quality settings
+            // If no countries found, return error
+            if (!qrData || qrData.length === 0) {
+                return res.status(404).json({ error: 'No countries found in this committee' });
+            }
+
+            // Create PDF document
             const doc = new PDFDocument({
                 size: 'A4',
                 margin: 40,
                 autoFirstPage: true,
-                compress: false, // Disable compression for higher quality
                 info: {
                     Title: `QR Codes for ${committee.name}`,
                     Author: 'MUN.UZ Platform',
                     Subject: 'Delegate QR Codes',
-                    Keywords: 'QR, MUN, delegate',
-                    Creator: 'MUN.UZ Platform'
+                    Keywords: 'QR, MUN, delegate'
                 }
             });
 
@@ -192,19 +195,16 @@ class CommitteesController {
             const pageHeight = 841.89; // A4 height in points
             const margin = 40;
             const contentWidth = pageWidth - (2 * margin);
-            const contentHeight = pageHeight - (2 * margin) - 60; // 60 for header and footer
+            const contentHeight = pageHeight - (2 * margin) - 60; // 60 for header
 
             const qrCodesPerRow = 3;
             const qrCodesPerColumn = 4;
             const qrCodesPerPage = qrCodesPerRow * qrCodesPerColumn;
 
-            // Calculate QR code size - make it larger for better quality
+            // Calculate QR code size
             const qrCodeWidth = Math.floor(contentWidth / qrCodesPerRow) - 20; // More spacing
             const qrCodeHeight = Math.floor((contentHeight / qrCodesPerColumn) - 40); // 40 for country name and spacing
             const qrCodeSize = Math.min(qrCodeWidth, qrCodeHeight);
-
-            // Calculate total pages needed
-            const totalPages = Math.ceil(qrData.length / qrCodesPerPage);
 
             let currentPage = 1;
 
@@ -212,12 +212,6 @@ class CommitteesController {
             for (let i = 0; i < qrData.length; i++) {
                 // Check if we need a new page
                 if (i > 0 && i % qrCodesPerPage === 0) {
-                    // Add page number at the bottom
-                    doc.font('Helvetica').fontSize(10).text(`Page ${currentPage} of ${totalPages}`, margin, pageHeight - 30, {
-                        align: 'center',
-                        width: contentWidth
-                    });
-
                     // Add a new page
                     doc.addPage();
                     currentPage++;
@@ -240,21 +234,15 @@ class CommitteesController {
                 // Generate high-quality QR code
                 const qrCodeDataUrl = await this.generateHighQualityQRCode(country.token, process.env.PROJECT_URL);
 
-                // Add QR code with high quality
+                // Add QR code
                 doc.image(qrCodeDataUrl, xPos, yPos, { width: qrCodeSize, height: qrCodeSize });
 
-                // Add country name below QR code with better formatting
+                // Add country name below QR code
                 doc.font('Helvetica-Bold').fontSize(12).text(country.name, xPos, yPos + qrCodeSize + 10, {
                     width: qrCodeSize,
                     align: 'center'
                 });
             }
-
-            // Add page number at the bottom of the last page
-            doc.font('Helvetica').fontSize(10).text(`Page ${currentPage} of ${totalPages}`, margin, pageHeight - 30, {
-                align: 'center',
-                width: contentWidth
-            });
 
             // Finalize the PDF
             doc.end();
@@ -268,7 +256,7 @@ class CommitteesController {
     async generateHighQualityQRCode(token, baseUrl) {
         // Create a complete login URL instead of just the token
         const loginUrl = `${baseUrl}/delegate/direct-login?token=${token}`;
-        
+
         return new Promise((resolve, reject) => {
             // Use the highest possible settings for quality
             qrcode.toDataURL(loginUrl, {

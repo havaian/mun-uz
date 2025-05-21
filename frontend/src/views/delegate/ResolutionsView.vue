@@ -119,7 +119,7 @@
                             enter-to="opacity-100 scale-100" leave="duration-200 ease-in"
                             leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
                             <DialogPanel
-                                class="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                class="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                                 <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900">
                                     Submit Resolution
                                 </DialogTitle>
@@ -131,24 +131,10 @@
                                             required />
                                     </div>
 
+                                    <!-- Replace simple textarea with ResolutionEditor -->
                                     <div>
-                                        <label for="documentUrl" class="form-label">Google Docs Link</label>
-                                        <div class="mt-1 relative rounded-md shadow-sm">
-                                            <div
-                                                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                                <DocumentIcon class="h-5 w-5 text-gray-400" aria-hidden="true" />
-                                            </div>
-                                            <input id="documentUrl" v-model="form.documentUrl" type="url"
-                                                class="form-input pl-10"
-                                                placeholder="https://docs.google.com/document/d/..." required />
-                                        </div>
-                                        <p class="mt-2 text-sm text-gray-500">
-                                            Please provide a link to a Google Document containing your resolution. Make
-                                            sure the document is shared with view access.
-                                        </p>
-                                        <div v-if="urlError" class="mt-2 text-sm text-red-600">
-                                            {{ urlError }}
-                                        </div>
+                                        <label class="form-label">Resolution Content</label>
+                                        <ResolutionEditor v-model="form.content" />
                                     </div>
 
                                     <div>
@@ -196,6 +182,7 @@ import { DocumentIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outli
 import { useAuthStore } from '../../stores/auth'
 import { resolutionsService, committeesService, sessionsService } from '../../services/api'
 import { toast } from 'vue3-toastify'
+import ResolutionEditor from '../../components/resolution/ResolutionEditor.vue'
 
 const authStore = useAuthStore()
 const resolutions = ref([])

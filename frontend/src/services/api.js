@@ -60,13 +60,13 @@ export const authService = {
         // Regular username/password login
         return api.post('/auth/login', credentials);
     },
-    
+
     // Delegate authentication using token
     delegateAuth: token => api.post('/auth/delegate', { token }),
-    
+
     // Logout endpoint
     logout: () => api.post('/auth/logout'),
-    
+
     // Generate token for QR code
     generateToken: username => api.get(`/auth/token/${username}`),
 }
@@ -115,6 +115,7 @@ export const resolutionsService = {
     setAsWorkingDraft: id => api.put(`/resolutions/${id}/working`),
     confirmCoAuthor: id => api.put(`/resolutions/${id}/co-author`),
     getDelegateResolutions: committeeId => api.get(`/resolutions/committees/${committeeId}/delegate-resolutions`),
+    rejectCoAuthor: id => api.put(`/resolutions/${id}/reject-co-author`),
 }
 
 // Amendments services
@@ -130,7 +131,8 @@ export const votingsService = {
     getById: id => api.get(`/votings/${id}`),
     create: data => api.post('/votings', data),
     submitVote: (id, vote) => api.post(`/votings/${id}/vote`, { vote }),
-    finalize: id => api.put(`/votings/${id}/finalize`)
+    finalize: id => api.put(`/votings/${id}/finalize`),
+    recordVote: (votingId, countryName, vote) => api.post(`/votings/${votingId}/record-vote`, { countryName, vote }),
 }
 
 // Statistics services

@@ -53,6 +53,10 @@ app.use('/api/amendments', require('./src/amendments/routes'));
 app.use('/api/votings', require('./src/votings/routes'));
 app.use('/api/statistics', require('./src/statistics/routes'));
 app.use('/api/countries', require('./src/countries/routes'));
+app.use('/api/speaker-list', require('./src/speakerList/routes'));
+app.use('/api/timers', require('./src/timer/routes'));
+app.use('/api/motions', require('./src/motions/routes'));
+app.use('/api/messages', require('./src/messages/routes'));
 
 // Health check routes - add both paths for compatibility
 app.get('/health', (req, res) => {

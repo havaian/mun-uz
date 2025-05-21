@@ -293,6 +293,59 @@ function notifyVotingResults(committeeId, voting, stats) {
     });
 }
 
+// Speaker list events
+function notifySpeakerListUpdated(committeeId, speakerList) {
+    broadcastToCommittee(committeeId, {
+        type: 'speaker_list_updated',
+        speakerList
+    });
+}
+
+// Timer events (enhanced)
+function notifyTimerCreated(committeeId, timer) {
+    broadcastToCommittee(committeeId, {
+        type: 'timer_created',
+        timer
+    });
+}
+
+function notifyTimerUpdated(committeeId, timer) {
+    broadcastToCommittee(committeeId, {
+        type: 'timer_updated',
+        timer
+    });
+}
+
+// Motion events
+function notifyMotionProposed(committeeId, motion) {
+    broadcastToCommittee(committeeId, {
+        type: 'motion_proposed',
+        motion
+    });
+}
+
+function notifyMotionStatusUpdated(committeeId, motion) {
+    broadcastToCommittee(committeeId, {
+        type: 'motion_status_updated',
+        motion
+    });
+}
+
+// Message events
+function notifyNewMessage(committeeId, recipientCountry, message) {
+    if (message.isCommitteeWide) {
+        broadcastToCommittee(committeeId, {
+            type: 'new_message',
+            message
+        });
+    } else {
+        sendToCountry(committeeId, recipientCountry, {
+            type: 'new_message',
+            message
+        });
+    }
+}
+
 module.exports = {
     setupSocketIO,
     broadcastToCommittee,
@@ -315,5 +368,11 @@ module.exports = {
     notifyAmendmentReviewed,
     notifyVotingStarted,
     notifyVoteSubmitted,
-    notifyVotingResults
+    notifyVotingResults,
+    notifySpeakerListUpdated,
+    notifyTimerCreated,
+    notifyTimerUpdated,
+    notifyMotionProposed,
+    notifyMotionStatusUpdated,
+    notifyNewMessage
 };

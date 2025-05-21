@@ -118,4 +118,40 @@ router.get('/committees/:committeeId/delegate-resolutions',
     }
 );
 
+router.post('/structured',
+    authenticate,
+    [
+        body('committeeId').isMongoId().withMessage('Invalid committee ID'),
+        body('title').notEmpty().withMessage('Title is required'),
+        body('preambleClauses').isArray().withMessage('Preamble clauses must be an array'),
+        body('operativeClauses').isArray().withMessage('Operative clauses must be an array'),
+        body('authors').isArray().withMessage('Authors must be an array').notEmpty().withMessage('At least one author is required')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await ResolutionsController.createStructuredResolution(req, res);
+    }
+);
+
+// Apply amendment to resolution
+router.post('/:resolutionId/amendments/:amendmentId/apply',
+    authenticate,
+    [
+        param('resolutionId').isMongoId().withMessage('Invalid resolution ID'),
+        param('amendmentId').isMongoId().withMessage('Invalid amendment ID')
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        await ResolutionsController.applyAmendment(req, res);
+    }
+);
+
 module.exports = router;

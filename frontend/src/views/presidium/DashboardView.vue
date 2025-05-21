@@ -54,23 +54,8 @@
                 <!-- Timer -->
                 <div class="card">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Timer</h3>
-                    <div class="flex items-center justify-between">
-                        <div class="text-3xl font-mono">{{ formatTime(timer) }}</div>
-                        <div class="space-x-2">
-                            <button @click="toggleTimer" class="btn"
-                                :class="timerRunning ? 'btn-secondary' : 'btn-primary'">
-                                {{ timerRunning ? 'Pause' : 'Start' }}
-                            </button>
-                            <button @click="resetTimer" class="btn btn-outline">
-                                Reset
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <label class="form-label">Set Duration (minutes)</label>
-                        <input type="number" v-model="timerDuration" class="form-input" min="1"
-                            :disabled="timerRunning">
-                    </div>
+                    <TimerControl :initialDuration="timerDuration" @timerEnd="handleTimerEnd"
+                        @timerUpdate="handleTimerUpdate" />
                 </div>
 
                 <!-- Quorum Status -->
@@ -87,27 +72,19 @@
                 </div>
             </div>
 
-            <!-- Roll Call and Countries (only when session is active) -->
+            <!-- Speaker List management -->
             <div class="card">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-lg font-medium text-gray-900">Roll Call</h3>
-                    <button @click="updateRollCall" class="btn btn-primary" :disabled="loading">
-                        Update Roll Call
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <div v-for="country in committee?.countries" :key="country.name"
-                        class="flex items-center space-x-2">
-                        <input type="checkbox" :id="country.name" v-model="presentCountries" :value="country.name"
-                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <label :for="country.name" class="text-sm text-gray-700">
-                            {{ country.name }}
-                        </label>
-                    </div>
-                </div>
+                <SpeakerList :countries="committee?.countries || []" @speakerAdded="handleSpeakerAdded"
+                    @speakerRemoved="handleSpeakerRemoved" @currentSpeakerChanged="handleCurrentSpeakerChanged" />
             </div>
-            
+
+            <!-- Roll Call component -->
+            <div class="card">
+                <RollCall :sessionId="activeSession._id" :countries="committee?.countries || []"
+                    :initialPresentCountries="presentCountries" @rollCallUpdated="handleRollCallUpdated"
+                    @quorumChanged="handleQuorumChanged" />
+            </div>
+
             <!-- Complete Session button (only when session is active) -->
             <div class="flex justify-end space-x-4 mt-4">
                 <button @click="completeSession" class="btn btn-secondary" :disabled="loading">
@@ -126,7 +103,7 @@
         <div v-if="loading" class="text-center py-12">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
         </div>
-        
+
         <!-- Resolutions Management (shown regardless of session status) -->
         <div class="card mt-8">
             <div class="flex items-center justify-between mb-6">
@@ -280,14 +257,15 @@
                                     <h4 class="text-xl font-semibold text-gray-900 mb-2">{{ selectedResolution?.title }}
                                     </h4>
                                     <p class="text-sm text-gray-500 mb-4">
-                                        <span class="font-medium">Authors:</span> {{ selectedResolution?.authors.join(',') }}
+                                        <span class="font-medium">Authors:</span> {{
+                                            selectedResolution?.authors.join(',') }}
                                         <span
                                             v-if="committee && selectedResolution?.authors.length < committee.minResolutionAuthors"
                                             class="text-red-500 font-medium ml-2">
                                             (Needs {{ committee.minResolutionAuthors -
-                                            selectedResolution?.authors.length }} more
+                                                selectedResolution?.authors.length }} more
                                             {{ (committee.minResolutionAuthors - selectedResolution?.authors.length) ===
-                                            1 ? 'author' : 'authors' }})
+                                                1 ? 'author' : 'authors' }})
                                         </span>
                                     </p>
 
@@ -368,6 +346,10 @@ import { useAuthStore } from '../../stores/auth'
 import { sessionsService, committeesService, eventsService, resolutionsService, createWebSocket } from '../../services/api'
 import { toast } from 'vue3-toastify'
 import { format } from 'date-fns'
+import TimerControl from '../../components/common/TimerControl.vue'
+import SpeakerList from '../../components/presidium/SpeakerList.vue'
+import RollCall from '../../components/presidium/RollCall.vue'
+import { useWebSocket } from '../../composables/useWebSocket'
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -651,7 +633,7 @@ async function setWorkingDraft(resolutionId, fromModal = false) {
         toast.error('You must start a session before setting a working draft')
         return
     }
-    
+
     try {
         await resolutionsService.setAsWorkingDraft(resolutionId)
 
@@ -675,42 +657,51 @@ async function setWorkingDraft(resolutionId, fromModal = false) {
     }
 }
 
-function initializeWebSocket() {
-    if (!committee.value?._id) return;
+const {
+    isConnected: wsConnected,
+    error: wsError,
+    lastMessage: wsMessage
+} = useWebSocket(committee.value?._id)
 
-    try {
-        const wsConnection = createWebSocket(committee.value._id);
-        if (wsConnection) {
-            wsConnection.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleWebSocketMessage(data);
-            };
-        }
-    } catch (error) {
-        console.error('WebSocket initialization error:', error);
-    }
+// Watch for WebSocket messages
+watch(wsMessage, (newMessage) => {
+    if (!newMessage) return
+
+    // Handle different message types
+    handleWebSocketMessage(newMessage)
+})
+
+function handleTimerEnd() {
+    toast.info('Timer ended')
+    // Additional logic for timer end
 }
 
-function handleWebSocketMessage(data) {
-    switch (data.type) {
-        case 'session_updated':
-            activeSession.value = data.session;
-            currentMode.value = data.session.mode;
-            presentCountries.value = data.session.presentCountries;
-            break;
-        case 'timer_started':
-            timer.value = data.duration;
-            timerRunning.value = true;
-            break;
-        case 'timer_ended':
-            timer.value = 0;
-            timerRunning.value = false;
-            break;
-        case 'resolution_submitted':
-        case 'resolution_reviewed':
-        case 'working_draft_selected':
-            fetchResolutions();
-            break;
-    }
+function handleTimerUpdate(remainingTime) {
+    timer.value = remainingTime
+    // Additional logic for timer updates
+}
+
+function handleSpeakerAdded(country, position) {
+    toast.info(`${country} added to speaker list`)
+    // Additional logic for speaker added
+}
+
+function handleSpeakerRemoved(country) {
+    toast.info(`${country} removed from speaker list`)
+    // Additional logic for speaker removed
+}
+
+function handleCurrentSpeakerChanged(country) {
+    toast.info(`Current speaker: ${country || 'None'}`)
+    // Additional logic for current speaker change
+}
+
+function handleRollCallUpdated(countries) {
+    presentCountries.value = countries
+    // Additional logic for roll call update
+}
+
+function handleQuorumChanged(hasQuorum) {
+    // Additional logic for quorum change
 }
 </script>
