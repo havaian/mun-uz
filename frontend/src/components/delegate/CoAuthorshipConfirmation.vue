@@ -53,7 +53,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { resolutionsService } from '../../services/api'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 import { toast } from 'vue3-toastify'
 
 const authStore = useAuthStore()
